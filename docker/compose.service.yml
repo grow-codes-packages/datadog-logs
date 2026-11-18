@@ -1,0 +1,50 @@
+# Datadog Log Management test fixture for grow-codes-packages/datadog-logs (GRO-1376), per sdk-kit SPEC §8.
+#
+# There is no self-hostable Datadog backend. The Docker suite runs Datadog's own Apache-2.0 test
+# intake `datadog/fakeintake`: it accepts POST /api/v2/logs (any content, any key), records every
+# raw payload and lets the test read it back through /fakeintake/payloads. It does NOT implement
+# search, aggregation or key validation and does NOT enforce Datadog's intake limits (see API.md).
+# The Grow stack catalog entry `datadog-logs` is cloud_managed and pins no image, so the tag below
+# is chosen here: v79 is a frozen fakeintake build (VERSION moved on to 80), pinned by digest.
+#
+# Test containers need only:
+#   GROW_DATADOG_LOGS_URL=http://datadog-logs:80     (intake AND api base override; fakeintake serves both paths)
+#   /bootstrap/env (volume `bootstrap`, read-only)   -> DD_API_KEY, DD_APP_KEY, DD_SITE, FAKEINTAKE_URL, ...
+# All keys are throwaway placeholders; fakeintake accepts any key. Never forward to Datadog here.
+name: datadog-logs-sdk
+
+services:
+  service:   # service under test (harness contract); reachable as `datadog-logs`
+    networks:
+      default:
+        aliases: [datadog-logs]
+    image: datadog/fakeintake:v79@sha256:a2742caa5d23d76805b5bfa7d79cfebf6d4e5ec8559deca4e1279b9ca82397a8
+    # -dddev-forward stays off (it would forward payloads to Datadog with a real DD_API_KEY).
+    # Retention 2h so long matrix runs never lose payloads to the 1-minute cleanup ticker (default 15m).
+    # Remote Config endpoints are not needed for logs.
+    command: ["-port=80", "-retention-period=2h", "-remoteconfig=false"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:80/fakeintake/health"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 5s
+      start_interval: 1s
+    mem_limit: 256m
+
+  bootstrap:
+    # curl is in the fakeintake image itself (alpine + curl), so no extra image is pulled.
+    image: datadog/fakeintake:v79@sha256:a2742caa5d23d76805b5bfa7d79cfebf6d4e5ec8559deca4e1279b9ca82397a8
+    depends_on:
+      service:
+        condition: service_healthy
+    volumes:
+      - bootstrap:/bootstrap
+      - ./bootstrap:/scripts:ro
+    environment:
+      SERVICE_URL: http://datadog-logs:80
+    entrypoint: ["/bin/sh", "/scripts/bootstrap.sh"]
+    restart: "no"
+
+volumes:
+  bootstrap: {}
