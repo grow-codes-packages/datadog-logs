@@ -3,49 +3,65 @@ package codes.grow.packages.datadoglogs;
 import codes.grow.packages.datadoglogs.core.AuthenticationException;
 import codes.grow.packages.datadoglogs.core.CancelledException;
 import codes.grow.packages.datadoglogs.core.ConfigException;
+import codes.grow.packages.datadoglogs.core.DatadogLogsException;
 import codes.grow.packages.datadoglogs.core.EnvReader;
 import codes.grow.packages.datadoglogs.core.HealthCheck;
 import codes.grow.packages.datadoglogs.core.HealthStatus;
 import codes.grow.packages.datadoglogs.core.Hooks;
 import codes.grow.packages.datadoglogs.core.HttpTransport;
+import codes.grow.packages.datadoglogs.core.Json;
 import codes.grow.packages.datadoglogs.core.Logger;
 import codes.grow.packages.datadoglogs.core.RetryPolicy;
 import codes.grow.packages.datadoglogs.core.Secret;
 import codes.grow.packages.datadoglogs.core.TlsOptions;
 import codes.grow.packages.datadoglogs.core.TransportRequest;
 import codes.grow.packages.datadoglogs.core.TransportResponse;
+import codes.grow.packages.datadoglogs.core.UnavailableException;
 import codes.grow.packages.datadoglogs.core.UnsupportedException;
+import codes.grow.packages.datadoglogs.core.ValidationException;
+import codes.grow.packages.datadoglogs.logging.BatchOptions;
+import codes.grow.packages.datadoglogs.logging.BatchingLogClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Client for Datadog Log Management.
+ * Client for Datadog Log Management: API key checks, the logs intake ({@link #logClient()}, {@link
+ * #exporter()}) and the query API ({@link #query()}, needs the application key).
  *
- * <p>Implements SPEC section 2.4. Thread-safe; create one per endpoint and close it when done.
+ * <p>Implements SPEC section 2.4. Thread-safe; create one per Datadog site and close it when done.
+ * Every I/O method has a blocking form and an {@code …Async} form returning {@link
+ * CompletableFuture}.
  *
  * <pre>{@code
  * try (DatadogLogsClient client = DatadogLogsClient.fromEnv()) {
- *   HealthStatus health = client.health();
- * }
+ *   DatadogLogClient logs = client.logClient();
+ *   logs.logger("checkout").info("user signed in", Map.of("user", Map.of("id", 42)));
+ * } // close() flushes the log client
  * }</pre>
- *
- * <p>Every I/O method has a blocking form and an {@code …Async} form returning {@link
- * CompletableFuture}. This file is owned by the service package (generated once by sdk-kit); add
- * service modules here.
  */
 public final class DatadogLogsClient implements AutoCloseable {
+  /** API key validation path. */
+  public static final String VALIDATE_PATH = "/api/v1/validate";
+
   private final DatadogLogsConfig config;
   private final HttpTransport transport;
+  private final DatadogHttp http;
+  private final DatadogLogExporter exporter;
   private final AtomicBoolean closed = new AtomicBoolean();
   private final List<AutoCloseable> resources = new ArrayList<>();
+  private volatile DatadogLogsQuery query;
 
   private DatadogLogsClient(DatadogLogsConfig config) {
     this.config = config;
     this.transport = new HttpTransport(config.toTransportConfig());
+    this.http = new DatadogHttp(transport, config);
+    this.exporter = new DatadogLogExporter(http, DatadogLogExporter.Limits.defaults());
   }
 
   /**
@@ -53,7 +69,7 @@ public final class DatadogLogsClient implements AutoCloseable {
    *
    * @param config validated configuration
    * @return a new client
-   * @throws ConfigException when TLS or proxy settings are invalid
+   * @throws ConfigException when the configuration, TLS or proxy settings are invalid
    */
   public static DatadogLogsClient create(DatadogLogsConfig config) {
     config.validate();
@@ -61,7 +77,7 @@ public final class DatadogLogsClient implements AutoCloseable {
   }
 
   /**
-   * Creates a client from the SDK and vendor environment variables.
+   * Creates a client from {@code GROW_DATADOG_LOGS_*}, {@code DD_API_KEY}, {@code DD_SITE}, …
    *
    * @return a new client
    */
@@ -88,7 +104,7 @@ public final class DatadogLogsClient implements AutoCloseable {
   }
 
   /**
-   * Returns the HTTP transport, for service modules built on this client.
+   * Returns the HTTP transport (base URL = the API host).
    *
    * @return the transport
    */
@@ -97,24 +113,46 @@ public final class DatadogLogsClient implements AutoCloseable {
   }
 
   /**
-   * Registers a resource (watcher, renewer, batch processor) closed with the client.
+   * Registers a resource (log client, tail) closed with the client.
    *
    * @param resource the resource
+   * @throws CancelledException after {@link #close()}
    */
   public void register(AutoCloseable resource) {
     synchronized (resources) {
+      if (closed.get()) {
+        throw new CancelledException("client is closed");
+      }
       resources.add(resource);
     }
   }
 
+  private TransportRequest.Builder validateRequest(String operation) {
+    return TransportRequest.get(DatadogHttp.join(config.apiUrl(), VALIDATE_PATH))
+        .header(DatadogHttp.API_KEY_HEADER, config.apiKey().map(Secret::reveal).orElse(""))
+        .operation(operation);
+  }
+
+  /** {@code valid} of a validate answer, or null when absent or not JSON. */
+  private static Boolean valid(TransportResponse r) {
+    try {
+      JsonNode v = Json.tree(r.body()).get("valid");
+      return v != null && v.isBoolean() ? v.asBoolean() : null;
+    } catch (ValidationException e) {
+      return null;
+    }
+  }
+
   /**
-   * Checks liveness ({@code GET /health}). Never throws for an unhealthy or unreachable service.
+   * Reachability through {@code GET /api/v1/validate} (Datadog has no health endpoint): 2xx is
+   * healthy {@code ok} ({@code details.apiKeyValid}); 401/403 is {@code unauthorized} (not
+   * healthy); 429 {@code degraded}; other statuses {@code unhealthy}; network errors {@code
+   * unreachable}. Never throws except for cancellation and configuration errors.
    *
    * @return the health status
-   * @throws CancelledException when interrupted or closed
    */
   public HealthStatus health() {
-    return HealthCheck.check(transport, "/health");
+    return HttpTransport.await(healthAsync(), "health");
   }
 
   /**
@@ -123,14 +161,41 @@ public final class DatadogLogsClient implements AutoCloseable {
    * @return a future with the health status
    */
   public CompletableFuture<HealthStatus> healthAsync() {
-    return HealthCheck.checkAsync(transport, "/health");
+    return http.sendAsync(validateRequest("health").acceptAnyStatus().maxRetries(0))
+        .handle(
+            (resp, err) -> {
+              if (err != null) {
+                DatadogLogsException e = HttpTransport.asSdkException(err, "health");
+                if (e instanceof CancelledException || e instanceof ConfigException) {
+                  throw e;
+                }
+                return HealthCheck.fromError(e);
+              }
+              return healthFrom(resp);
+            });
+  }
+
+  private static HealthStatus healthFrom(TransportResponse resp) {
+    int s = resp.status();
+    Map<String, String> details = new LinkedHashMap<>();
+    details.put("httpStatus", Integer.toString(s));
+    if (s >= 200 && s < 300) {
+      details.put("apiKeyValid", Boolean.toString(Boolean.TRUE.equals(valid(resp))));
+      return new HealthStatus(true, "ok", details);
+    }
+    if (s == 401 || s == 403) {
+      details.put("apiKeyValid", "false");
+      return new HealthStatus(false, "unauthorized", details);
+    }
+    return new HealthStatus(false, s == 429 ? "degraded" : "unhealthy", details);
   }
 
   /**
-   * Performs an authenticated round trip ({@code GET /v1/ping}).
+   * Validates the API key with {@code GET /api/v1/validate} and returns the latency.
    *
    * @return the latency
-   * @throws AuthenticationException on bad credentials
+   * @throws AuthenticationException when Datadog rejects the key (401/403)
+   * @throws UnavailableException when a 2xx answer has no {@code {"valid": true}}
    */
   public Duration ping() {
     return HttpTransport.await(pingAsync(), "ping");
@@ -143,45 +208,175 @@ public final class DatadogLogsClient implements AutoCloseable {
    */
   public CompletableFuture<Duration> pingAsync() {
     long start = System.nanoTime();
-    return transport
-        .sendAsync(authorized(TransportRequest.get("/v1/ping").operation("ping")))
-        .thenApply(r -> Duration.ofNanos(System.nanoTime() - start));
+    return http.sendAsync(validateRequest("ping"))
+        .thenApply(
+            r -> {
+              if (!Boolean.TRUE.equals(valid(r))) {
+                throw unexpectedValidate("ping", r.status());
+              }
+              return Duration.ofNanos(System.nanoTime() - start);
+            });
+  }
+
+  private static UnavailableException unexpectedValidate(String op, int status) {
+    return new UnavailableException(
+        op + ": unexpected response from /api/v1/validate (HTTP " + status + ")",
+        status,
+        null,
+        null,
+        null);
   }
 
   /**
-   * Returns the server version ({@code GET /version}).
+   * Reports whether Datadog accepts the configured API key ({@code GET /api/v1/validate}): {@code
+   * true} for {@code {"valid": true}}, {@code false} for HTTP 403 or {@code {"valid": false}}.
+   * Never needs the application key.
    *
-   * @return the version string
-   * @throws UnsupportedException when the server exposes none
+   * @return whether the key is valid
+   * @throws UnavailableException when a 2xx answer has no {@code valid} field
+   */
+  public boolean validateApiKey() {
+    return HttpTransport.await(validateApiKeyAsync(), "validateApiKey");
+  }
+
+  /**
+   * Asynchronous {@link #validateApiKey()}.
+   *
+   * @return a future with the result
+   */
+  public CompletableFuture<Boolean> validateApiKeyAsync() {
+    return http.sendAsync(validateRequest("validateApiKey").acceptStatus(403))
+        .thenApply(
+            r -> {
+              if (r.status() == 403) {
+                return false;
+              }
+              Boolean v = valid(r);
+              if (v == null) {
+                throw unexpectedValidate("validateApiKey", r.status());
+              }
+              return v;
+            });
+  }
+
+  /**
+   * Datadog is a SaaS without a version endpoint.
+   *
+   * @return never
+   * @throws UnsupportedException always
    */
   public String serverVersion() {
-    return HttpTransport.await(serverVersionAsync(), "serverVersion");
+    throw versionUnsupported();
   }
 
   /**
-   * Asynchronous {@link #serverVersion()}.
+   * Asynchronous {@link #serverVersion()}: always failed with {@link UnsupportedException}.
    *
-   * @return a future with the version
+   * @return a failed future
    */
   public CompletableFuture<String> serverVersionAsync() {
-    return transport
-        .sendAsync(
-            authorized(
-                TransportRequest.get("/version").operation("serverVersion").acceptStatus(404)))
-        .thenApply(DatadogLogsClient::version);
+    return CompletableFuture.failedFuture(versionUnsupported());
   }
 
-  private static String version(TransportResponse r) {
-    JsonNode v = r.status() == 404 ? null : r.jsonNode().get("version");
-    if (v == null || !v.isTextual()) {
-      throw new UnsupportedException("serverVersion: the server exposes no version");
+  private static UnsupportedException versionUnsupported() {
+    return new UnsupportedException("serverVersion: Datadog does not report a server version");
+  }
+
+  /**
+   * Returns the intake exporter (Datadog limits). Most users call {@link #logClient()} instead.
+   *
+   * @return the exporter
+   */
+  public DatadogLogExporter exporter() {
+    return exporter;
+  }
+
+  /**
+   * A batching log client with the default options.
+   *
+   * @return a new log client
+   */
+  public DatadogLogClient logClient() {
+    return logClient(DatadogLogClient.Options.defaults());
+  }
+
+  /**
+   * A batching log client with the given batch options.
+   *
+   * @param batchOptions batch options (capped at 1000 records / 5 000 000 bytes per batch)
+   * @return a new log client
+   */
+  public DatadogLogClient logClient(BatchOptions batchOptions) {
+    return logClient(DatadogLogClient.Options.builder().batchOptions(batchOptions).build());
+  }
+
+  /**
+   * A batching log client. The resource defaults to the configured {@code service} ({@code
+   * service.name}), {@code version} ({@code service.version}), {@code env} ({@code
+   * deployment.environment}) and {@code hostname} ({@code host.name}); {@code options.resource()}
+   * wins. {@link #close()} flushes and closes every log client it created.
+   *
+   * @param options batching, resource, redaction and intake limits
+   * @return a new log client
+   * @throws CancelledException after {@link #close()}
+   */
+  public DatadogLogClient logClient(DatadogLogClient.Options options) {
+    if (closed.get()) {
+      throw new CancelledException("logClient: client is closed");
     }
-    return v.asText();
+    BatchOptions batch = options.batchOptions();
+    if (batch.maxBatchSize() > DatadogLogMapping.MAX_ENTRIES_PER_REQUEST
+        || batch.maxBatchBytes() > DatadogLogMapping.MAX_PAYLOAD_BYTES) {
+      batch =
+          batch.toBuilder()
+              .maxBatchSize(
+                  Math.min(batch.maxBatchSize(), DatadogLogMapping.MAX_ENTRIES_PER_REQUEST))
+              .maxBatchBytes(Math.min(batch.maxBatchBytes(), DatadogLogMapping.MAX_PAYLOAD_BYTES))
+              .build();
+    }
+    DatadogLogExporter exp =
+        options.limits().equals(DatadogLogExporter.Limits.defaults())
+            ? exporter
+            : new DatadogLogExporter(http, options.limits());
+    Map<String, Object> resource = new LinkedHashMap<>();
+    config.service().ifPresent(v -> resource.put("service.name", v));
+    config.version().ifPresent(v -> resource.put("service.version", v));
+    config.env().ifPresent(v -> resource.put("deployment.environment", v));
+    config.hostname().ifPresent(v -> resource.put("host.name", v));
+    resource.putAll(options.resource());
+    BatchingLogClient delegate =
+        BatchingLogClient.builder(exp)
+            .batchOptions(batch)
+            .resource(resource)
+            .redaction(options.redaction())
+            .build();
+    DatadogLogClient client = new DatadogLogClient(delegate, exp);
+    try {
+      register(client);
+    } catch (CancelledException e) {
+      client.close();
+      throw e;
+    }
+    return client;
   }
 
-  private TransportRequest authorized(TransportRequest.Builder b) {
-    config.token().ifPresent(t -> b.header("Authorization", "Bearer " + t.reveal()));
-    return b.build();
+  /**
+   * The query client (search, aggregate, indexes, tail).
+   *
+   * @return the query client
+   * @throws ConfigException without an application key
+   */
+  public DatadogLogsQuery query() {
+    if (config.appKey().isEmpty()) {
+      throw new ConfigException(
+          "config: appKey is required for the query API (GROW_DATADOG_LOGS_APP_KEY or DD_APP_KEY)");
+    }
+    DatadogLogsQuery q = query;
+    if (q == null) {
+      q = new DatadogLogsQuery(this, http);
+      query = q;
+    }
+    return q;
   }
 
   /**
@@ -193,14 +388,17 @@ public final class DatadogLogsClient implements AutoCloseable {
     return closed.get();
   }
 
-  /** Stops registered resources and the transport. Idempotent. */
+  /**
+   * Flushes and closes every log client, stops running tails, then releases connections.
+   * Idempotent.
+   */
   @Override
   public void close() {
-    if (!closed.compareAndSet(false, true)) {
-      return;
-    }
     List<AutoCloseable> copy;
     synchronized (resources) {
+      if (!closed.compareAndSet(false, true)) {
+        return;
+      }
       copy = new ArrayList<>(resources);
       resources.clear();
     }
@@ -237,7 +435,62 @@ public final class DatadogLogsClient implements AutoCloseable {
     }
 
     /**
-     * Sets the endpoint base URL.
+     * Sets the Datadog API key.
+     *
+     * @param apiKey key
+     * @return this builder
+     */
+    public Builder apiKey(String apiKey) {
+      config.apiKey(apiKey);
+      return this;
+    }
+
+    /**
+     * Sets the Datadog API key.
+     *
+     * @param apiKey key
+     * @return this builder
+     */
+    public Builder apiKey(Secret apiKey) {
+      config.apiKey(apiKey);
+      return this;
+    }
+
+    /**
+     * Sets the Datadog application key (query API only).
+     *
+     * @param appKey key
+     * @return this builder
+     */
+    public Builder appKey(String appKey) {
+      config.appKey(appKey);
+      return this;
+    }
+
+    /**
+     * Sets the Datadog application key (query API only).
+     *
+     * @param appKey key
+     * @return this builder
+     */
+    public Builder appKey(Secret appKey) {
+      config.appKey(appKey);
+      return this;
+    }
+
+    /**
+     * Sets the Datadog site.
+     *
+     * @param site site such as {@code datadoghq.eu}
+     * @return this builder
+     */
+    public Builder site(String site) {
+      config.site(site);
+      return this;
+    }
+
+    /**
+     * Sets one base URL for the intake and the API.
      *
      * @param url URL
      * @return this builder
@@ -248,24 +501,90 @@ public final class DatadogLogsClient implements AutoCloseable {
     }
 
     /**
-     * Sets the API token.
+     * Overrides the intake base URL.
      *
-     * @param token token
+     * @param intakeUrl URL
      * @return this builder
      */
-    public Builder token(String token) {
-      config.token(token);
+    public Builder intakeUrl(String intakeUrl) {
+      config.intakeUrl(intakeUrl);
       return this;
     }
 
     /**
-     * Sets the API token.
+     * Overrides the API base URL.
      *
-     * @param token token
+     * @param apiUrl URL
      * @return this builder
      */
-    public Builder token(Secret token) {
-      config.token(token);
+    public Builder apiUrl(String apiUrl) {
+      config.apiUrl(apiUrl);
+      return this;
+    }
+
+    /**
+     * Sets the default service.
+     *
+     * @param service service
+     * @return this builder
+     */
+    public Builder service(String service) {
+      config.service(service);
+      return this;
+    }
+
+    /**
+     * Sets the environment ({@code env:} tag).
+     *
+     * @param env environment
+     * @return this builder
+     */
+    public Builder env(String env) {
+      config.env(env);
+      return this;
+    }
+
+    /**
+     * Sets the version ({@code version:} tag).
+     *
+     * @param version version
+     * @return this builder
+     */
+    public Builder version(String version) {
+      config.version(version);
+      return this;
+    }
+
+    /**
+     * Sets the tags added to every log.
+     *
+     * @param tags {@code key:value} strings
+     * @return this builder
+     */
+    public Builder tags(List<String> tags) {
+      config.tags(tags);
+      return this;
+    }
+
+    /**
+     * Sets the default hostname.
+     *
+     * @param hostname host name
+     * @return this builder
+     */
+    public Builder hostname(String hostname) {
+      config.hostname(hostname);
+      return this;
+    }
+
+    /**
+     * Sets the {@code ddsource}.
+     *
+     * @param source source
+     * @return this builder
+     */
+    public Builder source(String source) {
+      config.source(source);
       return this;
     }
 
