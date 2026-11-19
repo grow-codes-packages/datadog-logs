@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/grow-codes-packages/datadog-logs/compare/go/v0.1.0...go/v0.1.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* sync datadog-logs to sdk-kit 0.3.0 + weekly live checks (GRO-1376) ([#11](https://github.com/grow-codes-packages/datadog-logs/issues/11)) ([d9bb58f](https://github.com/grow-codes-packages/datadog-logs/commit/d9bb58f456b32e73230e9a1ef48caa9f2cb81953))
+
 ## 0.1.0 (2026-11-19)
 
 
