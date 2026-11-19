@@ -1,0 +1,26 @@
+{
+  "fixture": "validateApiKey.ok",
+  "server": "datadog/fakeintake:v79@sha256:a2742caa5d23",
+  "source": "fakeintake",
+  "verified": true,
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/validate",
+    "headers": {
+      "dd-api-key": "<redacted>"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json",
+      "fakeintake-id": "00000000-0000-0000-0000-000000000000",
+      "content-length": "14"
+    },
+    "body": {
+      "valid": true
+    }
+  },
+  "note": "static stub installed by bootstrap (official response shape); fakeintake accepts every key"
+}

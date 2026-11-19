@@ -1,0 +1,25 @@
+{
+  "fixture": "validateApiKey.403_missing_key",
+  "server": "Datadog SaaS (datadoghq.com / datadoghq.eu), probed 2026-11-18 with NO key or an all-zero invalid key",
+  "source": "datadog-live-unauthenticated",
+  "verified": true,
+  "request": {
+    "method": "GET",
+    "url": "https://api.datadoghq.com/api/v1/validate",
+    "headers": {},
+    "body": null
+  },
+  "response": {
+    "status": 403,
+    "headers": {
+      "content-type": "application/json",
+      "x-content-type-options": "nosniff"
+    },
+    "body": {
+      "errors": [
+        "Forbidden"
+      ]
+    }
+  },
+  "note": "no DD-API-KEY -> 403 (not 401). No request-id header is returned."
+}

@@ -1,0 +1,31 @@
+{
+  "fixture": "send.500_injected",
+  "server": "datadog/fakeintake:v79@sha256:a2742caa5d23",
+  "source": "fakeintake",
+  "verified": true,
+  "request": {
+    "method": "POST",
+    "path": "/api/v2/logs",
+    "headers": {
+      "content-type": "application/json",
+      "dd-api-key": "<redacted>"
+    },
+    "body": [
+      {
+        "message": "err500-30b1ccb0"
+      }
+    ]
+  },
+  "response": {
+    "status": 500,
+    "headers": {
+      "content-type": "application/json",
+      "fakeintake-id": "00000000-0000-0000-0000-000000000000",
+      "content-length": "37"
+    },
+    "body": {
+      "errors": ["Internal Server Error"]
+    }
+  },
+  "note": "status injected via /fakeintake/configure/override; body = {errors:[string]} as observed from real Datadog (403 text observed live 2026-11-18; other texts unverified); fakeintake cannot add headers such as Retry-After"
+}

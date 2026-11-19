@@ -10,13 +10,19 @@ npm install @grow-codes/datadog-logs
 ```ts
 import { DatadogLogsClient } from "@grow-codes/datadog-logs";
 
-// Reads GROW_DATADOG_LOGS_URL, GROW_DATADOG_LOGS_TOKEN, timeouts, TLS and proxy settings.
+// Reads DD_API_KEY, DD_APP_KEY, DD_SITE, DD_SERVICE, DD_ENV, DD_VERSION, DD_TAGS (or the
+// GROW_DATADOG_LOGS_* equivalents), timeouts, TLS and proxy settings.
 const client = DatadogLogsClient.fromEnv();
 try {
-  console.log(await client.health()); // { healthy: true, status: "ok", details: {} }
-  console.log(`ping: ${(await client.ping()).toFixed(1)} ms`);
+  console.log(await client.validateApiKey()); // true
+  const logs = client.logClient({ resource: { "service.name": "checkout" } });
+  logs.logger().info("user signed in", { user: { id: 42 } }); // batched, gzip, background flush
+
+  // Query API (needs DD_APP_KEY): search, cursor iterator, aggregation, polling tail.
+  const page = await client.query().searchLogs({ query: "service:checkout", from: "now-15m" });
+  console.log(page.records.map((r) => r.body));
 } finally {
-  await client.close();
+  await client.close(); // flushes every log client
 }
 ```
 

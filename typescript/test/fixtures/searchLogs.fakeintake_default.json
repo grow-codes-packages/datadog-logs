@@ -1,0 +1,39 @@
+{
+  "fixture": "searchLogs.fakeintake_default",
+  "server": "datadog/fakeintake:v79@sha256:a2742caa5d23",
+  "source": "fakeintake",
+  "verified": true,
+  "request": {
+    "method": "POST",
+    "path": "/api/v2/logs/events/search",
+    "headers": {
+      "content-type": "application/json",
+      "dd-api-key": "<redacted>",
+      "dd-application-key": "<redacted>"
+    },
+    "body": {
+      "filter": {
+        "query": "\"single-30b1ccb0\"",
+        "from": "now-15m",
+        "to": "now",
+        "indexes": ["*"]
+      },
+      "sort": "-timestamp",
+      "page": {
+        "limit": 10
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json",
+      "fakeintake-id": "00000000-0000-0000-0000-000000000000",
+      "content-length": "13"
+    },
+    "body": {
+      "errors": []
+    }
+  },
+  "note": "fakeintake does NOT implement search: every POST answers 200 {\"errors\":[]}; no data/meta -> the SDK must treat a missing data array as a protocol error, never as an empty result"
+}

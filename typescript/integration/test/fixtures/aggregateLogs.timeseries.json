@@ -1,0 +1,67 @@
+{
+  "fixture": "aggregateLogs.timeseries",
+  "server": "Datadog SaaS (api.<site>) - NOT recorded, no sandbox org yet",
+  "source": "datadog-openapi",
+  "verified": false,
+  "request": {
+    "method": "POST",
+    "path": "/api/v2/logs/analytics/aggregate",
+    "headers": {
+      "dd-api-key": "<redacted>",
+      "dd-application-key": "<redacted>",
+      "content-type": "application/json"
+    },
+    "body": {
+      "compute": [
+        {
+          "aggregation": "count",
+          "type": "timeseries",
+          "interval": "5m"
+        }
+      ],
+      "filter": {
+        "query": "service:checkout \"run-7f3a\"",
+        "from": "2026-11-18T12:00:00Z",
+        "to": "2026-11-18T12:15:00Z",
+        "indexes": ["main"]
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "data": {
+        "buckets": [
+          {
+            "by": {},
+            "computes": {
+              "c0": [
+                {
+                  "time": "2026-11-18T12:00:00.000Z",
+                  "value": 3
+                },
+                {
+                  "time": "2026-11-18T12:05:00.000Z",
+                  "value": 0
+                },
+                {
+                  "time": "2026-11-18T12:10:00.000Z",
+                  "value": 0
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "meta": {
+        "elapsed": 61,
+        "request_id": "cFJiNlp3...-redacted",
+        "status": "done"
+      }
+    }
+  },
+  "note": "timeseries compute value = array of {time, value}"
+}

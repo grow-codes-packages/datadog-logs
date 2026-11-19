@@ -1,0 +1,98 @@
+{
+  "fixture": "searchLogs.page1",
+  "server": "Datadog SaaS (api.<site>) - NOT recorded, no sandbox org yet",
+  "source": "datadog-openapi",
+  "verified": false,
+  "request": {
+    "method": "POST",
+    "path": "/api/v2/logs/events/search",
+    "headers": {
+      "dd-api-key": "<redacted>",
+      "dd-application-key": "<redacted>",
+      "content-type": "application/json"
+    },
+    "body": {
+      "filter": {
+        "query": "service:checkout \"run-7f3a\"",
+        "from": "2026-11-18T12:00:00Z",
+        "to": "2026-11-18T12:15:00Z",
+        "indexes": ["main"]
+      },
+      "sort": "-timestamp",
+      "page": {
+        "limit": 2
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json",
+      "x-ratelimit-limit": "300",
+      "x-ratelimit-period": "3600",
+      "x-ratelimit-remaining": "297",
+      "x-ratelimit-reset": "1820",
+      "x-ratelimit-name": "logs_list"
+    },
+    "body": {
+      "data": [
+        {
+          "id": "AQAAAZq0001xLKzOnn44ewAAAABBWnFfX1h3ZzZobm1mWXJFYTR0OA",
+          "type": "log",
+          "attributes": {
+            "timestamp": "2026-11-18T12:01:02.345Z",
+            "host": "host-a",
+            "service": "checkout",
+            "status": "info",
+            "message": "user signed in run-7f3a #2",
+            "tags": ["env:test", "version:1.2.3", "source:grow-sdk", "service:checkout"],
+            "attributes": {
+              "dd": {
+                "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+                "span_id": "00f067aa0ba902b7"
+              },
+              "user": {
+                "id": 42
+              },
+              "run": "run-7f3a"
+            }
+          }
+        },
+        {
+          "id": "AQAAAZq0000xLKzOnn44ewAAAABBWnFfX1h3ZzZobm1mWXJFYTR0OA",
+          "type": "log",
+          "attributes": {
+            "timestamp": "2026-11-18T12:01:01.123Z",
+            "host": "host-a",
+            "service": "checkout",
+            "status": "info",
+            "message": "user signed in run-7f3a #1",
+            "tags": ["env:test", "version:1.2.3", "source:grow-sdk", "service:checkout"],
+            "attributes": {
+              "dd": {
+                "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+                "span_id": "00f067aa0ba902b7"
+              },
+              "user": {
+                "id": 42
+              },
+              "run": "run-7f3a"
+            }
+          }
+        }
+      ],
+      "meta": {
+        "elapsed": 38,
+        "page": {
+          "after": "eyJhZnRlciI6IkFRQUFBWEtrTEt6T25uNDRld0FBQUFCQlYwdHJURXQ2VWxvM2N6QkZjbGxyYlZsQ1pRIn0"
+        },
+        "request_id": "cFJiNlp3...-redacted",
+        "status": "done"
+      },
+      "links": {
+        "next": "https://api.datadoghq.com/api/v2/logs/events?filter%5Bquery%5D=service%3Acheckout&page%5Bcursor%5D=eyJhZnRlciI6IkFRQUFBWEtrTEt6T25uNDRld0FBQUFCQlYwdHJURXQ2VWxvM2N6QkZjbGxyYlZsQ1pRIn0"
+      }
+    }
+  },
+  "note": "official shape (LogsListResponse). Pass meta.page.after back as page.cursor with identical filter/sort; never follow links.next with credentials. Default page.limit is 10, max 5000 (OpenAPI). Custom attributes appear under data[].attributes.attributes; reserved ones (host, service, status, message, tags, timestamp) one level up; dd.trace_id arrives nested as attributes.dd.trace_id after Datadog's JSON preprocessing (unverified until the live job)."
+}

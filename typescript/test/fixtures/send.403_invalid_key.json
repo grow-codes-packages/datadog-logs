@@ -1,0 +1,30 @@
+{
+  "fixture": "send.403_invalid_key",
+  "server": "Datadog SaaS (datadoghq.com / datadoghq.eu), probed 2026-11-18 with NO key or an all-zero invalid key",
+  "source": "datadog-live-unauthenticated",
+  "verified": true,
+  "request": {
+    "method": "POST",
+    "url": "https://http-intake.logs.datadoghq.com/api/v2/logs",
+    "headers": {
+      "dd-api-key": "<invalid placeholder>",
+      "content-type": "application/json"
+    },
+    "body": [
+      {
+        "message": "x"
+      }
+    ]
+  },
+  "response": {
+    "status": 403,
+    "headers": {
+      "content-type": "application/json",
+      "x-content-type-options": "nosniff"
+    },
+    "body": {
+      "errors": ["Forbidden", "API key is missing or invalid"]
+    }
+  },
+  "note": "real intake: missing OR invalid key -> 403 with string errors (not the JSON:API objects of the HTTPLogErrors schema)"
+}

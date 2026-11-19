@@ -1,0 +1,71 @@
+{
+  "fixture": "searchLogs.page2_last",
+  "server": "Datadog SaaS (api.<site>) - NOT recorded, no sandbox org yet",
+  "source": "datadog-openapi",
+  "verified": false,
+  "request": {
+    "method": "POST",
+    "path": "/api/v2/logs/events/search",
+    "headers": {
+      "dd-api-key": "<redacted>",
+      "dd-application-key": "<redacted>",
+      "content-type": "application/json"
+    },
+    "body": {
+      "filter": {
+        "query": "service:checkout \"run-7f3a\"",
+        "from": "2026-11-18T12:00:00Z",
+        "to": "2026-11-18T12:15:00Z",
+        "indexes": ["main"]
+      },
+      "sort": "-timestamp",
+      "page": {
+        "limit": 2,
+        "cursor": "eyJhZnRlciI6IkFRQUFBWEtrTEt6T25uNDRld0FBQUFCQlYwdHJURXQ2VWxvM2N6QkZjbGxyYlZsQ1pRIn0"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json",
+      "x-ratelimit-limit": "300",
+      "x-ratelimit-period": "3600",
+      "x-ratelimit-remaining": "296",
+      "x-ratelimit-reset": "1820",
+      "x-ratelimit-name": "logs_list"
+    },
+    "body": {
+      "data": [
+        {
+          "id": "AQAAAZq0002xLKzOnn44ewAAAABBWnFfX1h3ZzZobm1mWXJFYTR0OA",
+          "type": "log",
+          "attributes": {
+            "timestamp": "2026-11-18T12:01:00.001Z",
+            "host": "host-a",
+            "service": "checkout",
+            "status": "info",
+            "message": "user signed in run-7f3a #0",
+            "tags": ["env:test", "version:1.2.3", "source:grow-sdk", "service:checkout"],
+            "attributes": {
+              "dd": {
+                "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+                "span_id": "00f067aa0ba902b7"
+              },
+              "user": {
+                "id": 42
+              },
+              "run": "run-7f3a"
+            }
+          }
+        }
+      ],
+      "meta": {
+        "elapsed": 21,
+        "request_id": "cFJiNlp3...-redacted",
+        "status": "done"
+      }
+    }
+  },
+  "note": "last page: no meta.page.after and no links -> iteration ends"
+}
