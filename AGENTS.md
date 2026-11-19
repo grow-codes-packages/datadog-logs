@@ -148,8 +148,8 @@ Prefer the `make` targets; they are what CI runs.
   - `aggregateLogs` always sends compute `type` (`total` by default).
   - `tail` is a polling search (start default now, interval 5 s); `waitForLog` 5 s / 30 s;
     `listStreams` = index names.
-  - Calls on a closed client raise `CANCELLED` (TypeScript wraps the generated transport, which
-    says `CONFIG`).
+  - Calls on a closed client raise `CANCELLED` (in every language, the generated core transport
+    included since sdk-kit 0.3.0).
 - **Wire traps**: error bodies are lists of strings (`{"errors":["Forbidden"]}`), no request-id
   header; a 200 search/aggregate answer without `data` is a protocol error (`UNAVAILABLE`), never
   an empty result (fakeintake answers 200 `{"errors":[]}` to un-stubbed routes).

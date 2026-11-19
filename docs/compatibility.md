@@ -114,6 +114,5 @@ model). Known differences:
 | Python `from_env` | `DatadogLogsConfig.from_env(environ, /, **overrides)`: the environment mapping is **positional-only**, because the config has a field called `env` (`from_env({"DD_API_KEY": "k"}, env="prod")`). |
 | Python `dataclasses.replace` | The config derives `intake_url`, `api_url` and `url` from `site` when it is built, so `dataclasses.replace(cfg, site="datadoghq.eu")` keeps the **old URLs**. Build a new config (`DatadogLogsConfig.from_env(site=…)` or `DatadogLogsConfig(api_key=…, site=…)`) or replace the URL fields too. |
 | Python async tail | `AsyncDatadogLogsQuery.tail` uses its own polling loop that lets task cancellation through; the generic sdk-kit async tail catches the SDK `CancelledError` (which is also an `Exception`) and `stop()` could hang. |
-| TypeScript transport after `close()` | The generated core transport reports a closed client as `CONFIG`; the service layer checks first and raises `CANCELLED` like the other languages. Raw `client.transport` calls keep the core behaviour. |
 | Tail error handling | Go, Rust and Java end a tail on a non-retryable error (`Err()` / `onError`); TypeScript and Python report every error to `onError` and keep polling. |
 | Java environment | Java cannot change the process environment, so `loadEnv` sets **system properties** instead and returns the names it set. |
