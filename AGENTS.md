@@ -159,7 +159,11 @@ Prefer the `make` targets; they are what CI runs.
   Read captured payloads from the raw view `/fakeintake/payloads?endpoint=/api/v2/logs` (the typed
   view breaks on object bodies). Query functions run against `/fakeintake/configure/override`
   stubs; overrides cannot set headers.
-- **Live job**: a run against a Datadog sandbox organisation is planned and waits for owner keys.
+- **Live checks** (service-owned): `live/live_test.py` (Python, package from `./python`) runs the
+  SaaS-only functions against a real Datadog organisation; `make -C live live` locally,
+  `.github/workflows/live.yml` weekly + on dispatch. Org secrets `DATADOG_API_KEY`,
+  `DATADOG_APP_KEY`, variable `DATADOG_SITE`; without the keys it skips green. See
+  `docs/compatibility.md` "Live checks".
 - Language differences (poll interval defaults in Rust/Java option types, Python `from_env`
   positional-only mapping and `dataclasses.replace`, Python async tail cancellation): see
   `docs/compatibility.md`.
