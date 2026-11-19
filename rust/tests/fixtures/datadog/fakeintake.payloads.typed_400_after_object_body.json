@@ -1,0 +1,26 @@
+{
+  "fixture": "fakeintake.payloads.typed_400_after_object_body",
+  "server": "datadog/fakeintake:v79@sha256:a2742caa5d23",
+  "source": "fakeintake",
+  "verified": true,
+  "request": {
+    "method": "GET",
+    "path": "/fakeintake/payloads?endpoint=%2Fapi%2Fv2%2Flogs&format=json",
+    "headers": {},
+    "body": null
+  },
+  "response": {
+    "status": 400,
+    "headers": {
+      "content-type": "application/json",
+      "fakeintake-id": "00000000-0000-0000-0000-000000000000",
+      "content-length": "84"
+    },
+    "body": {
+      "errors": [
+        "json: cannot unmarshal object into Go value of type []*aggregator.Log"
+      ]
+    }
+  },
+  "note": "one non-array payload on the route breaks the typed view; use the raw view"
+}
