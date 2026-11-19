@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 from factories import URL_VAR, core_client
+from fakeintake import FakeIntake
 
 import grow_datadog_logs as sdk
 
@@ -37,3 +38,13 @@ def env() -> dict[str, str]:
 def client(env: dict[str, str]) -> Iterator[sdk.DatadogLogsClient]:
     with core_client(env) as c:
         yield c
+
+
+@pytest.fixture
+def intake(env: dict[str, str]) -> Iterator[FakeIntake]:
+    """The fakeintake harness; response overrides are restored after each test."""
+    fi = FakeIntake(env)
+    fi.restore_defaults()
+    yield fi
+    fi.restore_defaults()
+    fi.http.close()

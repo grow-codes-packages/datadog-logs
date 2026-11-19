@@ -11,6 +11,7 @@ import time
 from collections import defaultdict, deque
 from collections.abc import Awaitable
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any
 
 import grow_datadog_logs as sdk
@@ -110,9 +111,65 @@ def fast_retry(**kw: Any) -> sdk.RetryPolicy:
     return sdk.RetryPolicy(**values)
 
 
-def make_config(url: str, **kw: Any) -> sdk.DatadogLogsConfig:
+@dataclasses.dataclass(frozen=True, repr=False)
+class CoreConfig(sdk.BaseConfig):
+    """Generic config for the core transport tests (a ``token`` like the sdk-kit skeleton)."""
+
+    url: str = sdk.DEFAULT_URL
+    token: sdk.Secret | None = None
+
+    @classmethod
+    def _env_values(cls, reader: sdk.EnvReader) -> dict[str, Any]:
+        values = super()._env_values(reader)
+        token = reader.string("TOKEN", cls.ENV_VENDOR.get("TOKEN", ()))
+        if token is not None:
+            values["token"] = sdk.Secret(token)
+        return values
+
+    def validate(self) -> CoreConfig:
+        super().validate()
+        if self.token is not None and not self.token.reveal().strip():
+            raise sdk.ConfigError("config: token must not be blank")
+        return self
+
+
+def make_config(url: str, **kw: Any) -> CoreConfig:
+    """Config for the generic core transport tests."""
     kw.setdefault("retry", fast_retry())
+    return CoreConfig(url=url, **kw)
+
+
+API_KEY = "test-api-key-0123456789"
+APP_KEY = "test-app-key-9876543210"
+
+
+def dd_config(url: str, **kw: Any) -> sdk.DatadogLogsConfig:
+    """A Datadog config pointing both bases at ``url`` (fast retries, test keys)."""
+    kw.setdefault("retry", fast_retry())
+    kw.setdefault("api_key", API_KEY)
+    kw.setdefault("app_key", APP_KEY)
     return sdk.DatadogLogsConfig(url=url, **kw)
+
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def fixture(name: str) -> dict[str, Any]:
+    """A recorded fixture (``tests/fixtures/<name>.json``)."""
+    doc: dict[str, Any] = json.loads((FIXTURES / f"{name}.json").read_text(encoding="utf-8"))
+    return doc
+
+
+def fixture_reply(name: str) -> Reply:
+    """The recorded response of a fixture as a :class:`Reply`."""
+    resp = fixture(name)["response"]
+    headers = {
+        k: v
+        for k, v in (resp.get("headers") or {}).items()
+        if k.lower() not in ("content-type", "content-length")
+    }
+    body = resp.get("body")
+    return Reply(int(resp["status"]), b"" if body is None else body, headers)
 
 
 def closed_port_url() -> str:

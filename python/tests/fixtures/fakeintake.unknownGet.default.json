@@ -1,0 +1,23 @@
+{
+  "fixture": "fakeintake.unknownGet.default",
+  "server": "datadog/fakeintake:v79@sha256:a2742caa5d23",
+  "source": "fakeintake",
+  "verified": true,
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/validate-not-stubbed",
+    "headers": {
+      "dd-api-key": "<redacted>"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "fakeintake-id": "00000000-0000-0000-0000-000000000000",
+      "content-length": "0"
+    },
+    "body": null
+  },
+  "note": "default GET answer of fakeintake for any path: 200 with empty body - a parser must NOT read this as valid:true"
+}

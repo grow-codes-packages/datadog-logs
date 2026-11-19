@@ -9,7 +9,7 @@ import logging
 import pytest
 
 import grow_datadog_logs as sdk
-from _support import make_config
+from _support import CoreConfig, make_config
 
 # --------------------------------------------------------------------------- errors
 
@@ -159,7 +159,7 @@ def test_redact_text_and_truncate() -> None:
 
 def test_config_repr_redacts_credentials() -> None:
     """core.redaction.config"""
-    cfg = sdk.DatadogLogsConfig(
+    cfg = CoreConfig(
         url="https://user:pw@svc.example/",
         token="super-secret-token",
         headers={"X-Api-Key": "k-123", "Accept": "a"},
@@ -175,7 +175,7 @@ def test_config_repr_redacts_credentials() -> None:
         assert "TlsConfig(" in text
     assert isinstance(cfg.token, sdk.Secret)
     assert cfg.known_secrets() == ["super-secret-token"]
-    assert sdk.DatadogLogsConfig().known_secrets() == []
+    assert CoreConfig().known_secrets() == []
 
 
 def test_safe_repr_handles_sensitive_names() -> None:
@@ -292,7 +292,7 @@ def test_config_env_precedence() -> None:
     """core.config.env-precedence"""
     p = sdk.ENV_PREFIX
 
-    class VendorConfig(sdk.DatadogLogsConfig):
+    class VendorConfig(CoreConfig):
         ENV_VENDOR = {"URL": ("VENDOR_ADDR", "OTHER_ADDR"), "TOKEN": ("VENDOR_TOKEN",)}
 
     # default
@@ -331,7 +331,7 @@ def test_config_from_env_common_fields() -> None:
         p + "INSECURE_SKIP_VERIFY": "true",
         p + "PROXY": "http://proxy:3128",
     }
-    cfg = sdk.DatadogLogsConfig.from_env(env)
+    cfg = CoreConfig.from_env(env)
     assert cfg.url == "https://svc:8443"
     assert cfg.token is not None and cfg.token.reveal() == "tok-12345"
     assert (cfg.connect_timeout, cfg.request_timeout, cfg.total_timeout) == (1.5, 5.0, 60.0)
@@ -343,12 +343,12 @@ def test_config_from_env_common_fields() -> None:
         insecure_skip_verify=True,
     )
     assert cfg.proxy == "http://proxy:3128"
-    explicit = sdk.DatadogLogsConfig.from_env(env, retry=sdk.RetryPolicy(max_retries=0))
+    explicit = CoreConfig.from_env(env, retry=sdk.RetryPolicy(max_retries=0))
     assert explicit.retry.max_retries == 0
 
 
 def test_config_defaults_and_timedelta() -> None:
-    cfg = sdk.DatadogLogsConfig(connect_timeout=dt.timedelta(seconds=2))
+    cfg = CoreConfig(connect_timeout=dt.timedelta(seconds=2))
     assert cfg.connect_timeout == 2.0
     assert cfg.request_timeout == 30.0
     assert cfg.total_timeout == 120.0
@@ -377,7 +377,7 @@ def test_config_defaults_and_timedelta() -> None:
 )
 def test_config_validate(kwargs: dict[str, object], fragment: str) -> None:
     with pytest.raises(sdk.ConfigError) as info:
-        sdk.DatadogLogsConfig(**kwargs).validate()  # type: ignore[arg-type]
+        CoreConfig(**kwargs).validate()  # type: ignore[arg-type]
     assert fragment in str(info.value)
 
 

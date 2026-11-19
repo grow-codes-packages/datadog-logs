@@ -1,0 +1,28 @@
+{
+  "fixture": "validateApiKey.403_injected",
+  "server": "datadog/fakeintake:v79@sha256:a2742caa5d23",
+  "source": "fakeintake",
+  "verified": true,
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/validate",
+    "headers": {
+      "dd-api-key": "<redacted>"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 403,
+    "headers": {
+      "content-type": "application/json",
+      "fakeintake-id": "00000000-0000-0000-0000-000000000000",
+      "content-length": "25"
+    },
+    "body": {
+      "errors": [
+        "Forbidden"
+      ]
+    }
+  },
+  "note": "403 injected through /fakeintake/configure/override with the documented body shape"
+}
