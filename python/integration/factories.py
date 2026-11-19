@@ -39,7 +39,9 @@ def core_client(environ: Mapping[str, str], /, **overrides: Any) -> sdk.DatadogL
     return sdk.DatadogLogsClient.from_env(environ, **overrides)
 
 
-def async_core_client(environ: Mapping[str, str], /, **overrides: Any) -> sdk.AsyncDatadogLogsClient:
+def async_core_client(
+    environ: Mapping[str, str], /, **overrides: Any
+) -> sdk.AsyncDatadogLogsClient:
     overrides.setdefault("retry", _RETRY)
     return sdk.AsyncDatadogLogsClient.from_env(environ, **overrides)
 

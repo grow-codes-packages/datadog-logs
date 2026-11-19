@@ -28,8 +28,8 @@ fakeintake records intake payloads but has no search engine, index configuration
 checks. These functions are covered by **unit tests with recorded Datadog fixtures** (from the
 official OpenAPI spec and probes of the real API without valid keys) and called in Docker against
 **wire stubs** (a fakeintake override answers with a fixture; the request the SDK sent is read
-back from the capture and asserted). A live round trip needs a Datadog sandbox organisation; the
-live job is **pending sandbox keys from the owner**.
+back from the capture and asserted). A live round trip needs a Datadog sandbox organisation: see [Live checks](#live-checks), which
+run as soon as the owner adds the sandbox keys.
 
 | Function | Languages | Reason |
 | - | - | - |
@@ -48,6 +48,30 @@ once any payload is a JSON object or has a string timestamp (the suite reads the
 the SDK always sends arrays with integer millisecond timestamps); an un-stubbed search `POST`
 answers 200 `{"errors":[]}`, which the SDK reports as `UNAVAILABLE` (protocol error), never as an
 empty result.
+
+## Live checks
+
+`live/` (service-owned) holds a small Python suite that runs the SaaS-only functions above against
+a real Datadog organisation, using the package built from `./python`. It sends four logs with a
+unique marker (log client + exporter), then checks `wait_for_log` (up to 5 minutes for indexing),
+`search_logs` by tag, `iterate_logs` with a cursor (2 per page), `search`, `aggregate_logs`
+(count by status), `list_indexes` / `list_streams`, `validate_api_key` with the real key and with
+a wrong one (`False`), `health`, `ping`, and the `UNSUPPORTED` answers of `server_version` and
+`list_labels`. Every check prints PASS, FAIL, WARN or SKIP; any FAIL fails the run.
+
+| Variable | Secret / variable in GitHub | Required | What |
+| - | - | - | - |
+| `DATADOG_API_KEY` | organisation secret | yes | API key of the sandbox organisation |
+| `DATADOG_APP_KEY` | organisation secret | yes | application key with `logs_read_data` and `logs_read_config` |
+| `DATADOG_SITE` | organisation variable | no | Datadog site, default `datadoghq.eu` |
+| `LIVE_TIMEOUT_S` | — | no | how long to wait for a log to become searchable (default 300) |
+
+- **CI**: `.github/workflows/live.yml` runs on `workflow_dispatch` and every Monday. Without the
+  two secrets it ends green with a notice ("Live checks skipped") and runs nothing.
+- **Locally**: `DATADOG_API_KEY=… DATADOG_APP_KEY=… make -C live live` (creates `live/.venv`,
+  installs `./python`). Without the keys it prints `skipped: no credentials` and exits 0.
+  `make -C live lint` runs ruff on the suite.
+- The logs use service `grow-sdk-live-python`, env `live` and the tag `grow_live_run:<marker>`.
 
 ## Skipped conformance scenarios
 
@@ -90,6 +114,5 @@ model). Known differences:
 | Python `from_env` | `DatadogLogsConfig.from_env(environ, /, **overrides)`: the environment mapping is **positional-only**, because the config has a field called `env` (`from_env({"DD_API_KEY": "k"}, env="prod")`). |
 | Python `dataclasses.replace` | The config derives `intake_url`, `api_url` and `url` from `site` when it is built, so `dataclasses.replace(cfg, site="datadoghq.eu")` keeps the **old URLs**. Build a new config (`DatadogLogsConfig.from_env(site=…)` or `DatadogLogsConfig(api_key=…, site=…)`) or replace the URL fields too. |
 | Python async tail | `AsyncDatadogLogsQuery.tail` uses its own polling loop that lets task cancellation through; the generic sdk-kit async tail catches the SDK `CancelledError` (which is also an `Exception`) and `stop()` could hang. |
-| TypeScript transport after `close()` | The generated core transport reports a closed client as `CONFIG`; the service layer checks first and raises `CANCELLED` like the other languages. Raw `client.transport` calls keep the core behaviour. |
 | Tail error handling | Go, Rust and Java end a tail on a non-retryable error (`Err()` / `onError`); TypeScript and Python report every error to `onError` and keep polling. |
 | Java environment | Java cannot change the process environment, so `loadEnv` sets **system properties** instead and returns the names it set. |

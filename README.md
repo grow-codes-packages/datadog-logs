@@ -409,6 +409,17 @@ No host ports are published and every run uses its own Compose project, so runs 
 stack is always removed afterwards (`docker compose down -v`). Unit tests need no Docker:
 `make test` or `make coverage`.
 
+Live checks against a real Datadog organisation (the search, aggregate, index and key functions
+fakeintake cannot serve) live in `live/` and run weekly in `.github/workflows/live.yml` once the
+`DATADOG_API_KEY` / `DATADOG_APP_KEY` secrets exist. Run them locally with the same variables:
+
+```sh
+DATADOG_API_KEY=… DATADOG_APP_KEY=… DATADOG_SITE=datadoghq.eu make -C live live
+```
+
+Without the keys the suite prints `skipped: no credentials` and exits 0. Details:
+[docs/compatibility.md](docs/compatibility.md#live-checks).
+
 ## Compatibility
 
 | | TypeScript | Rust | Go | Python | Java |
