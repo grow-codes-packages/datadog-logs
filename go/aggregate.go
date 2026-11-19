@@ -13,8 +13,9 @@ type Compute struct {
 	// Aggregation is count, cardinality, pc75, pc90, pc95, pc98, pc99, sum,
 	// min, max, avg or median.
 	Aggregation string `json:"aggregation"`
-	// Type is "total" (Datadog default) or "timeseries".
-	Type string `json:"type,omitempty"`
+	// Type is "total" (the default: an empty Type is sent as "total") or
+	// "timeseries".
+	Type string `json:"type"`
 	// Interval is the timeseries bucket size, for example "5m".
 	Interval string `json:"interval,omitempty"`
 	// Metric is the measured attribute, for example "@duration" (not for count).
@@ -131,17 +132,22 @@ func (q *LogsQuery) AggregateLogs(ctx context.Context, compute []Compute, groupB
 	if len(compute) == 0 {
 		return nil, ValidationError(op, "compute must not be empty")
 	}
-	for _, c := range compute {
+	wireCompute := make([]Compute, len(compute))
+	for i, c := range compute {
 		if c.Aggregation == "" {
 			return nil, ValidationError(op, "every compute needs an aggregation")
 		}
+		if c.Type == "" {
+			c.Type = "total"
+		}
+		wireCompute[i] = c
 	}
 	for _, g := range groupBy {
 		if g.Facet == "" {
 			return nil, ValidationError(op, "every groupBy needs a facet")
 		}
 	}
-	body := map[string]any{"compute": compute, "filter": newFilter(opts.Query, opts.From, opts.To, opts.Indexes, opts.StorageTier)}
+	body := map[string]any{"compute": wireCompute, "filter": newFilter(opts.Query, opts.From, opts.To, opts.Indexes, opts.StorageTier)}
 	if len(groupBy) > 0 {
 		body["group_by"] = groupBy
 	}

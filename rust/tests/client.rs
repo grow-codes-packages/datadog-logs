@@ -341,6 +341,43 @@ async fn rate_limit_reset_is_the_retry_hint() {
 }
 
 #[tokio::test]
+async fn rate_limit_reset_is_the_retry_hint_on_503() {
+    let server = MockServer::start().await;
+    Mock::given(path("/api/v1/validate"))
+        .respond_with(
+            ResponseTemplate::new(503)
+                .insert_header("x-ratelimit-reset", "0.05")
+                .set_body_json(json!({"errors": ["busy"]})),
+        )
+        .up_to_n_times(1)
+        .mount(&server)
+        .await;
+    Mock::given(path("/api/v1/validate"))
+        .respond_with(respond("validateApiKey.datadog_ok"))
+        .mount(&server)
+        .await;
+    let rec = Recorder::new();
+    let c = Client::new(builder(&server).hooks(rec.clone()).build().unwrap()).unwrap();
+    assert!(c.validate_api_key().await.unwrap());
+    let errors = rec.errors();
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0].error.code(), ErrorCode::Unavailable);
+    assert_eq!(errors[0].retry_delay, Some(Duration::from_millis(50)));
+
+    // 503 without a hint: retried, then UNAVAILABLE with the vendor text
+    let server = MockServer::start().await;
+    Mock::given(path("/api/v1/validate"))
+        .respond_with(ResponseTemplate::new(503).set_body_json(json!({"errors": ["busy"]})))
+        .mount(&server)
+        .await;
+    let err = client(&server).ping().await.unwrap_err();
+    assert_eq!(err.code(), ErrorCode::Unavailable);
+    assert_eq!(err.http_status(), Some(503));
+    assert!(err.message().contains("busy"), "{err}");
+    assert_eq!(requests(&server, "/api/v1/validate").await.len(), 3);
+}
+
+#[tokio::test]
 async fn rate_limit_gives_up() {
     // Retry-After wins over X-RateLimit-Reset; too long a hint fails at once
     let server = MockServer::start().await;

@@ -77,6 +77,8 @@ class DatadogLogMappingTest {
     assertThat(DatadogLogMapping.buildDdtags(null, null, List.of())).isEmpty();
     assertThat(DatadogLogMapping.buildDdtags("p r", "1", List.of("a:1", "a:1", "b, c", "")))
         .contains("env:p_r,version:1,a:1,b_c");
+    // Unicode whitespace (no-break space) is replaced like in the other languages
+    assertThat(DatadogLogMapping.buildDdtags(null, null, List.of("x\u00a0y"))).contains("x_y");
   }
 
   @Test

@@ -62,6 +62,8 @@ public final class DatadogLogMapping {
 
   private static final Pattern HEX = Pattern.compile("[0-9a-f]+");
   private static final Pattern DECIMAL = Pattern.compile("\\d+");
+  private static final Pattern UNSAFE_TAG =
+      Pattern.compile("[\\s,]+", Pattern.UNICODE_CHARACTER_CLASS);
   private static final BigInteger MAX_U64 = BigInteger.ONE.shiftLeft(64).subtract(BigInteger.ONE);
   private static final Map<String, Severity> SEVERITY_BY_STATUS = severityByStatus();
 
@@ -204,7 +206,7 @@ public final class DatadogLogMapping {
   }
 
   private static void addTag(List<String> out, String tag) {
-    String clean = tag.replaceAll("[\\s,]+", "_");
+    String clean = UNSAFE_TAG.matcher(tag).replaceAll("_");
     if (!clean.isEmpty() && !out.contains(clean)) {
       out.add(clean);
     }

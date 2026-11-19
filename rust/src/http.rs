@@ -33,7 +33,7 @@ pub fn map_datadog_error(err: Error) -> Error {
     out.with_source(err)
 }
 
-/// Retry hint of a 429 response: `Retry-After`, else `X-RateLimit-Reset` (seconds).
+/// Retry hint of a 429 or 503 response: `Retry-After`, else `X-RateLimit-Reset` (seconds).
 pub(crate) fn rate_limit_hint(resp: &Response) -> Option<Duration> {
     if let Some(ra) = resp
         .header("retry-after")
@@ -78,7 +78,8 @@ pub(crate) fn vendor_text(body: &[u8]) -> Option<String> {
 }
 
 /// Sends the request built by `build` (called once per attempt) and applies the Datadog rules:
-/// 429 is retried here so `X-RateLimit-Reset` works as a retry hint, every error goes through
+/// 429 and 503 are retried here so `X-RateLimit-Reset` works as a retry hint (every request sent
+/// through this helper is idempotent for retry, DECISIONS 4), every error goes through
 /// [`map_datadog_error`].
 pub(crate) async fn send<'a, F>(
     transport: &'a HttpTransport,
@@ -97,22 +98,29 @@ where
         let resp = build()
             .operation(operation)
             .ok_status(429)
+            .ok_status(503)
             .send()
             .await
             .map_err(map_datadog_error)?;
-        if resp.status() != 429 {
+        let status = resp.status();
+        if status != 429 && status != 503 {
             return Ok(resp);
         }
+        let code = if status == 429 {
+            ErrorCode::RateLimited
+        } else {
+            ErrorCode::Unavailable
+        };
         let hint = rate_limit_hint(&resp);
         let reason = match vendor_text(resp.bytes()) {
             Some(t) => format!(
                 "{}: {}",
-                ErrorCode::RateLimited.reason(),
+                code.reason(),
                 truncate(&transport.redact(&t), MAX_VENDOR_MESSAGE)
             ),
-            None => ErrorCode::RateLimited.reason().to_owned(),
+            None => code.reason().to_owned(),
         };
-        let mut err = Error::from_status(429, format!("{operation}: {reason} (HTTP 429)"));
+        let mut err = Error::from_status(status, format!("{operation}: {reason} (HTTP {status})"));
         if let Some(id) = resp.request_id() {
             err = err.with_request_id(id);
         }

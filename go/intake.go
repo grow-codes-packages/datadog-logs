@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -220,10 +221,12 @@ func (c *Client) datadogLog(rec LogRecord) map[string]any {
 	return m
 }
 
-// ddtags joins env, version and the configured tags (de-duplicated, stable order).
+// ddtags joins env, version and the configured tags (de-duplicated, stable
+// order); whitespace and commas inside a tag are replaced by "_".
 func (c *Client) ddtags(res map[string]AttrValue) string {
 	var tags []string
 	add := func(t string) {
+		t = cleanTag(t)
 		if t != "" && !slices.Contains(tags, t) {
 			tags = append(tags, t)
 		}
@@ -235,9 +238,29 @@ func (c *Client) ddtags(res map[string]AttrValue) string {
 		add("version:" + v)
 	}
 	for _, t := range c.cfg.Tags {
-		add(strings.TrimSpace(t))
+		add(t)
 	}
 	return strings.Join(tags, ",")
+}
+
+// cleanTag replaces every run of whitespace and commas in a tag with one "_"
+// (a comma would split the tag in ddtags).
+func cleanTag(t string) string {
+	var b strings.Builder
+	b.Grow(len(t))
+	sep := false
+	for _, r := range t {
+		if r == ',' || unicode.IsSpace(r) {
+			if !sep {
+				b.WriteByte('_')
+			}
+			sep = true
+			continue
+		}
+		b.WriteRune(r)
+		sep = false
+	}
+	return b.String()
 }
 
 func resourceString(res map[string]AttrValue, key string) string {

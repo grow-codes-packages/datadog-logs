@@ -742,14 +742,15 @@ class DatadogLogsQuery(_QueryBase, BaseLogQueryClient):
         """Polling tail over :meth:`search` (Datadog Live Tail has no public API).
 
         Polls every ``interval_s`` (default 5 s, the search API is rate limited) for records from
-        ``start`` (default: the default search window). :meth:`DatadogLogsClient.close` stops it.
+        ``start`` (default: now, like the other languages). :meth:`DatadogLogsClient.close` stops
+        it.
         """
         handle = PollingTail(
             self,
             query,
             on_record,
             interval_s=to_seconds(interval_s),
-            start=start,
+            start=start if start is not None else datetime.now(timezone.utc),
             on_error=on_error,
         )
         if self._resources is not None:
@@ -907,14 +908,14 @@ class AsyncDatadogLogsQuery(_QueryBase, AsyncBaseLogQueryClient):
     ) -> AsyncPollingTail:
         """Polling tail over :meth:`search` on the running loop (default interval 5 s).
 
-        :meth:`AsyncDatadogLogsClient.aclose` stops it.
+        Records from ``start`` (default: now). :meth:`AsyncDatadogLogsClient.aclose` stops it.
         """
         handle = _AsyncPollingTail(
             self,
             query,
             on_record,
             interval_s=to_seconds(interval_s),
-            start=start,
+            start=start if start is not None else datetime.now(timezone.utc),
             on_error=on_error,
         )
         self._tails.append(handle)

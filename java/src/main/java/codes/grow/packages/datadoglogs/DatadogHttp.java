@@ -10,6 +10,7 @@ import codes.grow.packages.datadoglogs.core.Redaction;
 import codes.grow.packages.datadoglogs.core.RetryPolicy;
 import codes.grow.packages.datadoglogs.core.TransportRequest;
 import codes.grow.packages.datadoglogs.core.TransportResponse;
+import codes.grow.packages.datadoglogs.core.UnavailableException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
@@ -23,10 +24,10 @@ import java.util.concurrent.atomic.AtomicReference;
  * <ul>
  *   <li>DECISIONS 3: a 403 (missing or invalid key, or a key without the needed permission, which
  *       Datadog does not tell apart) becomes {@link AuthenticationException}, keeping status 403.
- *   <li>DECISIONS 5: a 429 without {@code Retry-After} uses {@code X-RateLimit-Reset} (seconds
- *       until the window resets) as the retry hint. The transport only reads {@code Retry-After},
- *       so 429 answers are retried here with the same policy (full jitter, {@code maxRetries},
- *       {@code maxRetryAfter}, total timeout).
+ *   <li>DECISIONS 5: a 429 or 503 without {@code Retry-After} uses {@code X-RateLimit-Reset}
+ *       (seconds until the window resets) as the retry hint. The transport only reads {@code
+ *       Retry-After}, so 429 answers (and 503 answers of idempotent requests) are retried here with
+ *       the same policy (full jitter, {@code maxRetries}, {@code maxRetryAfter}, total timeout).
  * </ul>
  */
 final class DatadogHttp {
@@ -82,15 +83,23 @@ final class DatadogHttp {
   }
 
   /**
-   * Sends a request with the Datadog error mapping and the 429 retry hint.
+   * Sends a request with the Datadog error mapping and the 429/503 retry hint.
    *
-   * @param builder request builder; 429 is accepted on it unless the caller already accepts it
+   * @param builder request builder; 429 and 503 are accepted on it unless the caller already
+   *     accepts them
    * @return the response future, failed with a mapped SDK exception
    */
   CompletableFuture<TransportResponse> sendAsync(TransportRequest.Builder builder) {
     TransportRequest probe = builder.build();
-    boolean callerAccepts429 = probe.accepts(429);
-    TransportRequest request = callerAccepts429 ? probe : builder.acceptStatus(429).build();
+    boolean handle429 = !probe.accepts(429);
+    boolean handle503 = !probe.accepts(503);
+    if (handle429) {
+      builder.acceptStatus(429);
+    }
+    if (handle503) {
+      builder.acceptStatus(503);
+    }
+    TransportRequest request = builder.build();
     CompletableFuture<TransportResponse> result = new CompletableFuture<>();
     AtomicReference<CompletableFuture<?>> current = new AtomicReference<>();
     result.whenComplete(
@@ -101,13 +110,14 @@ final class DatadogHttp {
           }
         });
     long deadline = System.nanoTime() + config.totalTimeout().toNanos();
-    attempt(request, !callerAccepts429, 1, deadline, result, current);
+    attempt(request, handle429, handle503, 1, deadline, result, current);
     return result;
   }
 
   private void attempt(
       TransportRequest request,
       boolean handle429,
+      boolean handle503,
       int attemptNo,
       long deadline,
       CompletableFuture<TransportResponse> result,
@@ -124,11 +134,12 @@ final class DatadogHttp {
                 map(HttpTransport.asSdkException(err, request.operation())));
             return;
           }
-          if (!handle429 || resp.status() != 429) {
+          int status = resp.status();
+          if (!(status == 429 && handle429) && !(status == 503 && handle503)) {
             result.complete(resp);
             return;
           }
-          RateLimitException error = rateLimited(request, resp);
+          DatadogLogsException error = limited(request, resp);
           RetryPolicy policy = config.retry();
           int maxRetries = request.maxRetries().orElse(policy.maxRetries());
           Duration hint = error.retryAfter().orElse(null);
@@ -137,7 +148,8 @@ final class DatadogHttp {
             wait = hint;
           }
           boolean retry =
-              attemptNo <= maxRetries
+              (status == 429 || request.idempotent())
+                  && attemptNo <= maxRetries
                   && (hint == null || hint.compareTo(policy.maxRetryAfter()) <= 0)
                   && wait.toNanos() < deadline - System.nanoTime();
           notifyError(request, error, attemptNo, retry);
@@ -146,19 +158,27 @@ final class DatadogHttp {
             return;
           }
           CompletableFuture.delayedExecutor(wait.toNanos(), TimeUnit.NANOSECONDS)
-              .execute(() -> attempt(request, true, attemptNo + 1, deadline, result, current));
+              .execute(
+                  () ->
+                      attempt(
+                          request, handle429, handle503, attemptNo + 1, deadline, result, current));
         });
   }
 
-  private RateLimitException rateLimited(TransportRequest request, TransportResponse resp) {
+  private DatadogLogsException limited(TransportRequest request, TransportResponse resp) {
+    int status = resp.status();
     String message =
         HttpTransport.errorMessage(
-            request.operation(), 429, resp.headers(), resp.body(), config.knownSecrets());
+            request.operation(), status, resp.headers(), resp.body(), config.knownSecrets());
     Instant now = Instant.now();
     Optional<Duration> hint =
         RetryPolicy.parseRetryAfter(resp.header("retry-after").orElse(null), now);
     if (hint.isEmpty()) {
       hint = resetHint(resp.header(RATE_LIMIT_RESET_HEADER).orElse(null));
+    }
+    if (status == 503) {
+      return new UnavailableException(
+          message, 503, resp.requestId().orElse(null), hint.orElse(null), null);
     }
     return new RateLimitException(
         message, 429, resp.requestId().orElse(null), hint.orElse(null), null);

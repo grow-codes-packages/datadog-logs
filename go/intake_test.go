@@ -344,3 +344,23 @@ func TestNewLogClient(t *testing.T) {
 		t.Fatalf("bad options: %v", err)
 	}
 }
+
+func TestCleanTag(t *testing.T) {
+	cases := map[string]string{
+		"team:sdk":        "team:sdk",
+		"team: my squad":  "team:_my_squad",
+		"a,b":             "a_b",
+		" lead , trail\t": "_lead_trail_",
+		"x y":             "x_y",
+		"":                "",
+	}
+	for in, want := range cases {
+		if got := cleanTag(in); got != want {
+			t.Errorf("cleanTag(%q) = %q, want %q", in, got, want)
+		}
+	}
+	c := &Client{cfg: Config{Env: "prod env", Tags: []string{"a b", "a,b", "c"}}}
+	if got := c.ddtags(nil); got != "env:prod_env,a_b,c" {
+		t.Fatalf("ddtags %q", got)
+	}
+}

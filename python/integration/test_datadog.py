@@ -340,7 +340,12 @@ def test_async_round_trip_and_query(env: dict[str, str], intake: FakeIntake) -> 
             with pytest.raises(sdk.UnsupportedError):
                 await q.list_labels()
             got: list[sdk.LogRecord] = []
-            await q.tail(run, got.append, interval_s=0.1)
+            await q.tail(
+                run,
+                got.append,
+                interval_s=0.1,
+                start=datetime.now(timezone.utc) - timedelta(hours=1),
+            )
             for _ in range(100):
                 if got:
                     break

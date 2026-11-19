@@ -25,7 +25,7 @@ func asAuthentication(err error) error {
 func mapDatadogError(err error) error { return asAuthentication(err) }
 
 // rateLimitHint copies X-RateLimit-Reset (seconds until the window resets)
-// into Retry-After on 429 responses that carry no Retry-After, so the
+// into Retry-After on 429 and 503 responses that carry no Retry-After, so the
 // transport honours it like a Retry-After (DECISIONS.md #5).
 type rateLimitHint struct {
 	next http.RoundTripper
@@ -37,7 +37,8 @@ func (r rateLimitHint) RoundTrip(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		return resp, err
 	}
-	if resp.StatusCode == http.StatusTooManyRequests && resp.Header.Get("Retry-After") == "" {
+	limited := resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusServiceUnavailable
+	if limited && resp.Header.Get("Retry-After") == "" {
 		if reset := resp.Header.Get("X-RateLimit-Reset"); reset != "" {
 			resp.Header.Set("Retry-After", reset)
 		}

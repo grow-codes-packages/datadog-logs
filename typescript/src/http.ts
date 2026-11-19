@@ -4,6 +4,7 @@
 import type { Dispatcher } from "undici";
 import {
   AuthenticationError,
+  CancelledError,
   DatadogLogsError,
   ErrorCode,
   type RequestOptions,
@@ -87,11 +88,17 @@ export function mapDatadogError(err: unknown): unknown {
   });
 }
 
-/** Sends a request through the transport and applies {@link mapDatadogError}. */
+/**
+ * Sends a request through the transport and applies {@link mapDatadogError}. A call on a closed
+ * client throws `CancelledError` (code `CANCELLED`), like the other four languages.
+ */
 export async function datadogRequest<T>(
   transport: HttpTransport,
   options: RequestOptions,
 ): Promise<TransportResponse<T>> {
+  if (transport.closed) {
+    throw new CancelledError(`${options.operation ?? options.path}: client is closed`);
+  }
   try {
     return await transport.request<T>(options);
   } catch (err) {

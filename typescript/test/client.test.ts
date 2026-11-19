@@ -2,6 +2,7 @@ import { inspect } from "node:util";
 import { describe, expect, it } from "vitest";
 import {
   AuthenticationError,
+  CancelledError,
   ConfigError,
   DatadogLogClient,
   DatadogLogsClient,
@@ -342,8 +343,10 @@ describe("DatadogLogsClient core", () => {
     expect(decodeIntake(s.requests.find((r) => r.url === "/api/v2/logs")!)[0]?.message).toBe(
       "queued until close",
     );
-    await expect(client.ping()).rejects.toMatchObject({ code: "CONFIG" });
-    expect(() => client.logClient()).toThrow(ConfigError);
+    await expect(client.ping()).rejects.toMatchObject({ code: "CANCELLED" });
+    await expect(client.health()).rejects.toMatchObject({ code: "CANCELLED" });
+    await expect(client.exporter.sendPayload("[]")).rejects.toMatchObject({ code: "CANCELLED" });
+    expect(() => client.logClient()).toThrow(CancelledError);
   });
 
   it("rejects unreadable TLS files with ConfigError", () => {

@@ -5,8 +5,8 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](license.md)
 
 One API for **Datadog Log Management** in five languages: TypeScript, Rust, Go, Python and Java. Every package
-has the same functions, options, defaults, error codes and behaviour, tested against a real
-`datadog/fakeintake (pinned tag) + optional live Datadog sandbox` in Docker.
+has the same functions, options, defaults, error codes and behaviour, tested in Docker against
+Datadog's own intake emulator (`datadog/fakeintake:v79`).
 
 | Language | Package | Coverage |
 | - | - | - |
@@ -18,7 +18,7 @@ has the same functions, options, defaults, error codes and behaviour, tested aga
 
 ## What you get
 
-- **Client** with health, authenticated ping and server version ([Client](client.md)).
+- **Client** with health, authenticated ping and API key validation ([Client](client.md)).
 - **Configuration** from code or `GROW_DATADOG_LOGS_*` / vendor environment variables, immutable
   and validated ([Configuration](configuration.md)).
 - **Retries** with full-jitter backoff and `Retry-After`, connect/request/total timeouts and
@@ -28,11 +28,14 @@ has the same functions, options, defaults, error codes and behaviour, tested aga
   ([Redaction](redaction.md)).
 - **Logging**: batching log client, logger facade, redaction processor, framework adapters and
   log search ([Logging](logging.md)).
-- **Service functions** for the Datadog Log Management API ([Functions](functions.md)).
+- **Logs intake** to every Datadog site: gzip, 1,000 entries / 5 MB per request, 1 MB
+  truncation, reserved attributes and trace correlation ([Intake](functions/intake.md)).
+- **Logs search** with an application key: `searchLogs` with cursor pagination, `aggregateLogs`,
+  indexes, a polling `tail` and `waitForLog` ([Search](functions/search.md)).
 
 Start with [Install](install.md) and the [Quickstart](quickstart.md).
 
 !!! note "Independent project"
     This SDK is made by [Grow Codes](https://grow.codes). Datadog Log Management is a trademark of
-    Datadog, Inc.. This project is not affiliated with or endorsed by Datadog, Inc.. See
+    Datadog, Inc. This project is not affiliated with or endorsed by Datadog, Inc. See
     [License & disclaimer](license.md).

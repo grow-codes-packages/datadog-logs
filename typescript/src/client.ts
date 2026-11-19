@@ -2,6 +2,7 @@
 
 import type { Dispatcher } from "undici";
 import {
+  CancelledError,
   ConfigError,
   DatadogLogsError,
   type HealthStatus,
@@ -124,7 +125,8 @@ export class DatadogLogsClient {
   /**
    * Reachability through `GET /api/v1/validate` (Datadog has no health endpoint). 2xx → healthy
    * (`details.apiKeyValid`); 401/403 → `healthy=false, status="unauthorized"`; 429 → `degraded`;
-   * 5xx → `unhealthy`; network errors → `unreachable`. Never throws except `CANCELLED`/`CONFIG`.
+   * 5xx → `unhealthy`; network errors → `unreachable`. Never throws except `CANCELLED` (also on a
+   * closed client) / `CONFIG`.
    */
   health(options: CallOptions = {}): Promise<HealthStatus> {
     return probeHealth(async () => {
@@ -198,7 +200,7 @@ export class DatadogLogsClient {
    * `version`, `env` and `hostname`. {@link close} flushes and closes every log client it created.
    */
   logClient(options: DatadogLogClientOptions = {}): DatadogLogClient {
-    if (this.#closing !== undefined) throw new ConfigError("logClient: client is closed");
+    if (this.#closing !== undefined) throw new CancelledError("logClient: client is closed");
     const { exporter: limits, ...batching } = options;
     const exporter =
       limits === undefined

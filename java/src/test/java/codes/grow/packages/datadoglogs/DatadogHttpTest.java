@@ -10,6 +10,7 @@ import codes.grow.packages.datadoglogs.core.PermissionDeniedException;
 import codes.grow.packages.datadoglogs.core.RateLimitException;
 import codes.grow.packages.datadoglogs.core.RetryPolicy;
 import codes.grow.packages.datadoglogs.core.TransportRequest;
+import codes.grow.packages.datadoglogs.core.UnavailableException;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -109,6 +110,42 @@ class DatadogHttpTest {
     server.always(PATH, 429, "{}", "X-RateLimit-Reset", "5");
     try (var c = client(one, Duration.ofMillis(500), Hooks.NONE)) {
       assertThatThrownBy(() -> http(c).send(get())).isInstanceOf(RateLimitException.class);
+      assertThat(server.requests(PATH)).hasSize(1);
+    }
+  }
+
+  @Test
+  void unavailableResetIsTheRetryHint() {
+    server
+        .on(PATH, 503, "{\"errors\":[\"busy\"]}", "X-RateLimit-Reset", "0")
+        .on(PATH, 200, "{\"valid\":true}");
+    try (var c = client(DatadogLogsClientTest.fastRetry(), Duration.ofSeconds(10), Hooks.NONE)) {
+      assertThat(http(c).send(get()).status()).isEqualTo(200);
+      assertThat(server.requests(PATH)).hasSize(2);
+    }
+    server.close();
+    server = new DdServer();
+    server.on(PATH, 503, "{\"errors\":[\"busy\"]}", "X-RateLimit-Reset", "3600");
+    try (var c = client(DatadogLogsClientTest.fastRetry(), Duration.ofSeconds(10), Hooks.NONE)) {
+      assertThatThrownBy(() -> http(c).send(get()))
+          .isInstanceOfSatisfying(
+              UnavailableException.class,
+              e -> {
+                assertThat(e.retryAfter()).contains(Duration.ofHours(1));
+                assertThat(e.httpStatus()).hasValue(503);
+                assertThat(e.getMessage()).contains("busy");
+              });
+      assertThat(server.requests(PATH)).hasSize(1);
+    }
+    // a non-idempotent request is not retried on 503 (the hint is still reported)
+    server.close();
+    server = new DdServer();
+    server.always(PATH, 503, "{}", "X-RateLimit-Reset", "0");
+    try (var c = client(DatadogLogsClientTest.fastRetry(), Duration.ofSeconds(10), Hooks.NONE)) {
+      assertThatThrownBy(
+              () -> http(c).send(TransportRequest.post(PATH).operation("probe").idempotent(false)))
+          .isInstanceOfSatisfying(
+              UnavailableException.class, e -> assertThat(e.retryAfter()).contains(Duration.ZERO));
       assertThat(server.requests(PATH)).hasSize(1);
     }
   }

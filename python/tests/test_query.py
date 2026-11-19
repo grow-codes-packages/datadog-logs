@@ -6,7 +6,7 @@ import asyncio
 import json
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pytest
@@ -355,7 +355,7 @@ def test_tail_polls_and_stops_on_close(server: MockServer) -> None:
     c, q = query(server)
     got: list[sdk.LogRecord] = []
     errors: list[Exception] = []
-    handle = q.tail("x", got.append, interval_s=0.02, on_error=errors.append)
+    handle = q.tail("x", got.append, interval_s=0.02, on_error=errors.append, start=hour_ago())
     deadline = time.monotonic() + 5
     while not got and time.monotonic() < deadline:
         time.sleep(0.02)
@@ -369,6 +369,29 @@ def test_tail_polls_and_stops_on_close(server: MockServer) -> None:
 
 
 DEFAULT_INTERVAL = sdk.DEFAULT_POLL_INTERVAL_S
+
+
+def hour_ago() -> datetime:
+    return datetime.now(timezone.utc) - timedelta(hours=1)
+
+
+def test_tail_starts_now_by_default(server: MockServer) -> None:
+    """Like every other language, a tail without ``start`` only reports logs from now on."""
+    server.defaults[SEARCH] = event_reply("old", ts="2020-01-01T00:00:00Z")
+    c, q = query(server)
+    got: list[sdk.LogRecord] = []
+    before = datetime.now(timezone.utc)
+    handle = q.tail("x", got.append, interval_s=0.02)
+    deadline = time.monotonic() + 5
+    while not server.seen and time.monotonic() < deadline:
+        time.sleep(0.02)
+    handle.stop()
+    sent_from = datetime.fromisoformat(
+        body_of(server.seen[0])["filter"]["from"].replace("Z", "+00:00")
+    )
+    assert sent_from >= before.replace(microsecond=0) - timedelta(seconds=1)
+    assert got == []
+    c.close()
 
 
 def test_query_without_registry() -> None:
@@ -420,7 +443,7 @@ async def test_async_query(server: MockServer) -> None:
         assert [r.body for r in result.records] == ["s"]
         server.defaults[SEARCH] = event_reply("tail me")
         got: list[sdk.LogRecord] = []
-        await q.tail("x", got.append, interval_s=0.02)
+        await q.tail("x", got.append, interval_s=0.02, start=hour_ago())
         for _ in range(250):
             if got:
                 break
@@ -450,7 +473,9 @@ async def test_async_tail_reports_errors_and_keeps_polling(server: MockServer) -
     errors: list[Exception] = []
     got: list[sdk.LogRecord] = []
     async with sdk.AsyncDatadogLogsClient(dd_config(server.url)) as c:
-        await c.query().tail("x", got.append, interval_s=0.01, on_error=errors.append)
+        await c.query().tail(
+            "x", got.append, interval_s=0.01, on_error=errors.append, start=hour_ago()
+        )
         for _ in range(300):
             if got:
                 break

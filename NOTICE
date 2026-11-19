@@ -28,8 +28,8 @@ Trademarks
 -------------------------------------------------------------------------------
 
 This project is an independent, community-maintained client library. It is not
-affiliated with, endorsed or sponsored by Datadog, Inc..
-Datadog Log Management is a trademark of Datadog, Inc.. All other product names, logos and
+affiliated with, endorsed or sponsored by Datadog, Inc.
+Datadog and Datadog Log Management are trademarks of Datadog, Inc. All other product names, logos and
 brands are the property of their respective owners and are used for
 identification purposes only.
 
@@ -59,3 +59,17 @@ copyright and licence.
 
   CODE_OF_CONDUCT.md is adapted from the Contributor Covenant, version 2.1,
   https://www.contributor-covenant.org, licensed under CC BY 4.0.
+
+  Datadog API names. The packages use the field names, endpoint paths, header
+  names, site host names and enum values of Datadog's public HTTP API (Logs
+  intake API v2, Logs Search and Aggregate API v2, /api/v1/validate and the log
+  index configuration) as documented by Datadog, Inc. in its public API
+  reference and its OpenAPI specification (datadog-api-spec, Apache-2.0,
+  Copyright Datadog, Inc.). No Datadog source code is included. Recorded
+  response fixtures in the test folders follow those documented shapes.
+
+  Test-only tooling (not distributed in any package):
+
+  datadog/fakeintake (Docker image, used by docker/compose.service.yml for the
+  integration suite), part of github.com/DataDog/datadog-agent,
+  Copyright Datadog, Inc., licensed under the Apache License, Version 2.0.

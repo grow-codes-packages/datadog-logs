@@ -326,6 +326,16 @@ func TestRateLimitResetHint(t *testing.T) {
 			t.Fatalf("%v calls=%d", err, srv.calls.Load())
 		}
 	})
+	t.Run("503 reset is the hint", func(t *testing.T) {
+		srv := newQueryServer(t, func(w http.ResponseWriter, _ *http.Request, _ searchBody, _ int) {
+			w.Header().Set("X-RateLimit-Reset", "90")
+			writeJSON(w, 503, `{"errors":["busy"]}`)
+		})
+		_, err := newQuery(t, srv.URL, nil).SearchLogs(t.Context(), SearchLogsRequest{})
+		if e := asError(t, err); e.Code != ErrorCodeUnavailable || e.RetryAfter != 90*time.Second || srv.calls.Load() != 1 {
+			t.Fatalf("%+v calls=%d", e, srv.calls.Load())
+		}
+	})
 	t.Run("retry-after wins", func(t *testing.T) {
 		srv := newQueryServer(t, func(w http.ResponseWriter, _ *http.Request, _ searchBody, _ int) {
 			w.Header().Set("Retry-After", "120")
@@ -388,7 +398,7 @@ func TestAggregateLogs(t *testing.T) {
 
 	serveName.Store("aggregateLogs.paged")
 	res, err = q.AggregateLogs(t.Context(), []Compute{{Aggregation: "count"}}, []GroupBy{{Facet: "@user.id", Limit: 1}}, AggregateLogsOptions{Cursor: "abc"})
-	if err != nil || res.NextCursor == "" || res.Buckets[0].By["@user.id"] != int64(42) || srv.body(2).Page.Cursor != "abc" || len(srv.body(2).Compute) != 1 {
+	if err != nil || res.NextCursor == "" || res.Buckets[0].By["@user.id"] != int64(42) || srv.body(2).Page.Cursor != "abc" || len(srv.body(2).Compute) != 1 || srv.body(2).Compute[0].Type != "total" {
 		t.Fatal(res, err)
 	}
 
