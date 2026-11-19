@@ -1,0 +1,65 @@
+{
+  "fixture": "aggregateLogs.paged",
+  "server": "Datadog SaaS (api.<site>) - NOT recorded, no sandbox org yet",
+  "source": "datadog-openapi",
+  "verified": false,
+  "request": {
+    "method": "POST",
+    "path": "/api/v2/logs/analytics/aggregate",
+    "headers": {
+      "dd-api-key": "<redacted>",
+      "dd-application-key": "<redacted>",
+      "content-type": "application/json"
+    },
+    "body": {
+      "compute": [
+        {
+          "aggregation": "count"
+        }
+      ],
+      "filter": {
+        "query": "service:checkout \"run-7f3a\"",
+        "from": "2026-11-18T12:00:00Z",
+        "to": "2026-11-18T12:15:00Z",
+        "indexes": [
+          "main"
+        ]
+      },
+      "group_by": [
+        {
+          "facet": "@user.id",
+          "limit": 1
+        }
+      ]
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "data": {
+        "buckets": [
+          {
+            "by": {
+              "@user.id": 42
+            },
+            "computes": {
+              "c0": 3
+            }
+          }
+        ]
+      },
+      "meta": {
+        "elapsed": 44,
+        "page": {
+          "after": "eyJhZnRlciI6eyJAdXNlci5pZCI6WzQyXX19"
+        },
+        "request_id": "cFJiNlp3...-redacted",
+        "status": "done"
+      }
+    }
+  },
+  "note": "aggregate also pages via meta.page.after -> page.cursor (LogsAggregateRequestPage)"
+}

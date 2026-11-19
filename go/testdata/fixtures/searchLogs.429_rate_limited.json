@@ -1,0 +1,42 @@
+{
+  "fixture": "searchLogs.429_rate_limited",
+  "server": "Datadog SaaS (api.<site>) - NOT recorded, no sandbox org yet",
+  "source": "datadog-openapi",
+  "verified": false,
+  "request": {
+    "method": "POST",
+    "path": "/api/v2/logs/events/search",
+    "headers": {
+      "dd-api-key": "<redacted>",
+      "dd-application-key": "<redacted>",
+      "content-type": "application/json"
+    },
+    "body": {
+      "filter": {
+        "query": "service:checkout \"run-7f3a\"",
+        "from": "2026-11-18T12:00:00Z",
+        "to": "2026-11-18T12:15:00Z",
+        "indexes": [
+          "main"
+        ]
+      }
+    }
+  },
+  "response": {
+    "status": 429,
+    "headers": {
+      "content-type": "application/json",
+      "x-ratelimit-limit": "300",
+      "x-ratelimit-period": "3600",
+      "x-ratelimit-remaining": "0",
+      "x-ratelimit-reset": "1820",
+      "x-ratelimit-name": "logs_list"
+    },
+    "body": {
+      "errors": [
+        "Too many requests"
+      ]
+    }
+  },
+  "note": "TooManyRequestsResponse; Datadog sends X-RateLimit-* headers (Reset = seconds until reset), not necessarily Retry-After. Use X-RateLimit-Reset as retry hint when Retry-After is absent (needs sdk-kit decision). Header values here are illustrative."
+}

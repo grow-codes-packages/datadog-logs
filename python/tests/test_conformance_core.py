@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 
 import grow_datadog_logs as sdk
-from _support import MockServer, Reply, make_config
+from _support import MockServer, Reply, dd_config
 from grow_datadog_logs.testing import runner as r
 
 
@@ -360,17 +360,15 @@ def test_context_resolve_and_close() -> None:
 
 
 def demo_server(server: MockServer) -> None:
-    server.defaults["/health"] = Reply(200, {"status": "ok"})
-    server.defaults["/v1/ping"] = Reply(200, {"pong": True})
-    server.defaults["/version"] = Reply(200, {"version": "1.0.0"})
+    server.defaults["/api/v1/validate"] = Reply(200, {"valid": True})
 
 
 @pytest.mark.parametrize("scenario_doc", r.pytest_params(categories=["core"]))
 def test_core_scenarios_sync(server: MockServer, scenario_doc: dict[str, Any]) -> None:
     demo_server(server)
     runner = r.ConformanceRunner(
-        {"core": lambda c: sdk.DatadogLogsClient(make_config(server.url, token="t-1234"))},
-        capabilities={"version"},
+        {"core": lambda c: sdk.DatadogLogsClient(dd_config(server.url))},
+        capabilities=set(),
     )
     result = r.assert_scenario(runner, scenario_doc)
     assert result.status == "passed"
@@ -379,7 +377,7 @@ def test_core_scenarios_sync(server: MockServer, scenario_doc: dict[str, Any]) -
 def test_core_scenario_async_client(server: MockServer) -> None:
     demo_server(server)
     runner = r.ConformanceRunner(
-        {"core": lambda c: sdk.AsyncDatadogLogsClient(make_config(server.url))},
+        {"core": lambda c: sdk.AsyncDatadogLogsClient(dd_config(server.url))},
     )
     report = runner.run()
     assert report.ok, report.summary()

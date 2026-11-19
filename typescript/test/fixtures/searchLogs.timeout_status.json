@@ -1,0 +1,41 @@
+{
+  "fixture": "searchLogs.timeout_status",
+  "server": "Datadog SaaS (api.<site>) - NOT recorded, no sandbox org yet",
+  "source": "datadog-openapi",
+  "verified": false,
+  "request": {
+    "method": "POST",
+    "path": "/api/v2/logs/events/search",
+    "headers": {
+      "dd-api-key": "<redacted>",
+      "dd-application-key": "<redacted>",
+      "content-type": "application/json"
+    },
+    "body": {
+      "filter": {
+        "query": "service:checkout \"run-7f3a\"",
+        "from": "2026-11-18T12:00:00Z",
+        "to": "2026-11-18T12:15:00Z",
+        "indexes": ["main"]
+      },
+      "page": {
+        "limit": 10
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "data": [],
+      "meta": {
+        "elapsed": 30001,
+        "request_id": "cFJiNlp3...-redacted",
+        "status": "timeout"
+      }
+    }
+  },
+  "note": "meta.status may be 'timeout' (LogsAggregateResponseStatus enum done|timeout): partial result, not an error"
+}

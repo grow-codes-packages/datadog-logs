@@ -1,0 +1,29 @@
+{
+  "fixture": "sendBatch.gzip.accepted",
+  "server": "datadog/fakeintake:v79@sha256:a2742caa5d23",
+  "source": "fakeintake",
+  "verified": true,
+  "request": {
+    "method": "POST",
+    "path": "/api/v2/logs",
+    "headers": {
+      "content-type": "application/json",
+      "dd-api-key": "<redacted>",
+      "content-encoding": "gzip"
+    },
+    "body": {
+      "_note": "50 records, gzip",
+      "records_uncompressed_bytes": 4881,
+      "gzip_bytes": 361
+    }
+  },
+  "response": {
+    "status": 202,
+    "headers": {
+      "content-type": "application/json",
+      "fakeintake-id": "00000000-0000-0000-0000-000000000000",
+      "content-length": "2"
+    },
+    "body": {}
+  }
+}

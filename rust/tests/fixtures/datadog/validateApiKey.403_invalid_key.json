@@ -1,0 +1,27 @@
+{
+  "fixture": "validateApiKey.403_invalid_key",
+  "server": "Datadog SaaS (datadoghq.com / datadoghq.eu), probed 2026-11-18 with NO key or an all-zero invalid key",
+  "source": "datadog-live-unauthenticated",
+  "verified": true,
+  "request": {
+    "method": "GET",
+    "url": "https://api.datadoghq.com/api/v1/validate",
+    "headers": {
+      "dd-api-key": "<invalid placeholder>"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 403,
+    "headers": {
+      "content-type": "application/json",
+      "x-content-type-options": "nosniff"
+    },
+    "body": {
+      "errors": [
+        "Forbidden"
+      ]
+    }
+  },
+  "note": "invalid key -> 403 {errors:[Forbidden]}; same on api.datadoghq.eu (HTTP/2). validateApiKey() should return false / ping() raise AuthenticationError (see API.md)"
+}

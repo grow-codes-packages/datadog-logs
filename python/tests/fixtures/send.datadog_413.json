@@ -1,0 +1,29 @@
+{
+  "fixture": "send.datadog_413",
+  "server": "Datadog SaaS (api.<site>) - NOT recorded, no sandbox org yet",
+  "source": "datadog-openapi",
+  "verified": false,
+  "request": {
+    "method": "POST",
+    "path": "/api/v2/logs",
+    "headers": {
+      "dd-api-key": "<redacted>",
+      "content-type": "application/json"
+    },
+    "body": {
+      "_note": "> 5 MB uncompressed"
+    }
+  },
+  "response": {
+    "status": 413,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "errors": [
+        "Payload too large"
+      ]
+    }
+  },
+  "note": "413 per docs when the batch is above 5 MB uncompressed; body form {errors:[string]} as observed for real 403s, exact text unverified. Not retryable with the same body -> ValidationError (the SDK splits before sending)."
+}

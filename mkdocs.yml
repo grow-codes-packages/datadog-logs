@@ -117,7 +117,13 @@ nav:
   - Quickstart: quickstart.md
   - Configuration: configuration.md
   - Client: client.md
-  - Functions: functions.md
+  - Functions:
+      - functions.md
+      - Client and status: functions/client.md
+      - Intake: functions/intake.md
+      - Log client: functions/log-client.md
+      - Search and aggregate: functions/search.md
+      - Query, tail and waitForLog: functions/query.md
   - Logging: logging.md
   - Error handling: errors.md
   - Hooks and logger: hooks.md

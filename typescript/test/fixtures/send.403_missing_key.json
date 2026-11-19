@@ -1,0 +1,25 @@
+{
+  "fixture": "send.403_missing_key",
+  "server": "Datadog SaaS (datadoghq.com / datadoghq.eu), probed 2026-11-18 with NO key or an all-zero invalid key",
+  "source": "datadog-live-unauthenticated",
+  "verified": true,
+  "request": {
+    "method": "POST",
+    "url": "https://http-intake.logs.datadoghq.com/api/v2/logs",
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": []
+  },
+  "response": {
+    "status": 403,
+    "headers": {
+      "content-type": "application/json",
+      "x-content-type-options": "nosniff"
+    },
+    "body": {
+      "errors": ["Forbidden", "API key is missing or invalid"]
+    }
+  },
+  "note": "no key -> 403 (the documented 401 'missing API key' was not observed)"
+}

@@ -30,7 +30,7 @@ x-test: &test
   volumes:
     - bootstrap:/bootstrap:ro
   environment:
-    GROW_DATADOG_LOGS_URL: ${GROW_DATADOG_LOGS_URL:-http://service:80}
+    GROW_DATADOG_LOGS_URL: ${GROW_DATADOG_LOGS_URL:-http://datadog-logs:80}
     GROW_BOOTSTRAP_ENV: /bootstrap/env
     GROW_TEST_RUN_ID: ${GROW_TEST_RUN_ID:-local}
   init: true

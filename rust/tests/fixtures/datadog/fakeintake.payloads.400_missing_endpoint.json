@@ -1,0 +1,21 @@
+{
+  "fixture": "fakeintake.payloads.400_missing_endpoint",
+  "server": "datadog/fakeintake:v79@sha256:a2742caa5d23",
+  "source": "fakeintake",
+  "verified": true,
+  "request": {
+    "method": "GET",
+    "path": "/fakeintake/payloads",
+    "headers": {},
+    "body": null
+  },
+  "response": {
+    "status": 400,
+    "headers": {
+      "content-type": "text/plain",
+      "fakeintake-id": "00000000-0000-0000-0000-000000000000",
+      "content-length": "32"
+    },
+    "body": "missing endpoint query parameter"
+  }
+}

@@ -22,17 +22,24 @@ Check the latest version in the README badges before pinning one.
 
 ## 2. Configure
 
-Prefer environment configuration so no credential is written into code:
+Prefer environment configuration so no key is written into code:
 
 ```sh
-export GROW_DATADOG_LOGS_URL=https://datadog-logs.example.internal
-export GROW_DATADOG_LOGS_TOKEN=...            # from your secret store, never committed
+export DD_API_KEY=...          # from your secret store, never committed (required)
+export DD_SITE=datadoghq.eu    # API site; default datadoghq.com (us3/us5/ap1/ap2/uk1.datadoghq.com, ddog-gov.com, us2.ddog-gov.com)
+export DD_APP_KEY=...          # only for search/aggregate/indexes (logs_read_data, logs_read_config)
+export DD_SERVICE=checkout DD_ENV=prod DD_VERSION=1.4.0 DD_TAGS="team:payments,tier:web"
 ```
 
-Precedence: explicit config value > `GROW_DATADOG_LOGS_*` > vendor variables (`DD_API_KEY`, `DD_APP_KEY` (query only), `DD_SITE` (datadoghq.com, datadoghq.eu, us3/us5/ap1, ddog-gov.com), `DD_SERVICE`, `DD_ENV`, `DD_VERSION`, `DD_TAGS`, `GROW_DATADOG_LOGS_*`) > default.
+Precedence: explicit config value > `GROW_DATADOG_LOGS_*` (`_API_KEY`, `_APP_KEY`, `_SITE`, `_URL`,
+`_INTAKE_URL`, `_API_URL`, `_SERVICE`, `_ENV`, `_VERSION`, `_TAGS`, `_HOSTNAME`, `_SOURCE`) >
+Datadog variables (`DD_API_KEY`, `DD_APP_KEY`/`DD_APPLICATION_KEY`, `DD_SITE`, `DD_SERVICE`,
+`DD_ENV`, `DD_VERSION`, `DD_TAGS`, `DD_HOSTNAME`) > default. `GROW_DATADOG_LOGS_URL` points the
+intake and the API at one base URL (proxy, Docker fakeintake).
 Other variables: `…_CONNECT_TIMEOUT`, `…_REQUEST_TIMEOUT`, `…_TOTAL_TIMEOUT` (`10s`, `1500`),
 `…_MAX_RETRIES`, `…_CA_CERT`, `…_CLIENT_CERT`, `…_CLIENT_KEY`, `…_PROXY`. Environment proxies
-(`HTTPS_PROXY`) are ignored unless `proxy` is set.
+(`HTTPS_PROXY`) are ignored unless `proxy` is set. Without an API key the client constructor raises
+`CONFIG`; `client.query()` raises `CONFIG` without an application key.
 
 ## 3. Use
 
@@ -40,10 +47,14 @@ Create one client per process and close it on shutdown (TypeScript `await client
 `client.close().await`, Go `defer client.Close()`, Python `with …`/`close()`, Java
 try-with-resources).
 
-- `health()` never throws for an unhealthy service; check `healthy`.
-- `ping()` verifies credentials (`AUTHENTICATION` error when they are wrong).
-- All I/O is retried with jitter on 429/502/503/504 and connection errors; only idempotent calls
-  are retried on 500.
+- `health()` (`GET /api/v1/validate`) never throws for an unhealthy service; check `healthy`
+  (`status="unauthorized"` for a rejected key).
+- `validateApiKey()` returns `false` for a rejected key; `ping()` raises `AUTHENTICATION`.
+  Datadog answers 403 for missing, invalid and under-privileged keys alike: every 403 is
+  `AUTHENTICATION`.
+- `serverVersion()` and `listLabels()` always raise `UNSUPPORTED`.
+- Every Datadog request (including the intake POST) is retried with jitter on 408/429/5xx and
+  connection errors; `Retry-After`, else `X-RateLimit-Reset`, sets the wait on 429/503.
 - Errors carry `code` (`CONFIG`, `AUTHENTICATION`, `PERMISSION_DENIED`, `NOT_FOUND`, `CONFLICT`,
   `RATE_LIMITED`, `VALIDATION`, `UNAVAILABLE`, `TIMEOUT`, `UNSUPPORTED`, `CANCELLED`), `retryable`,
   `httpStatus` and `requestId`. Branch on the code, not on the message text. Go:
@@ -58,9 +69,37 @@ and redacted; call `close()` on shutdown so the queue is flushed.
 
 <!-- service:skill-usage — the service adds its own functions and examples here. -->
 
+### Datadog functions
+
+| Need | TypeScript | Rust | Go | Python | Java |
+| - | - | - | - | - | - |
+| ship logs | `client.logClient().logger("api").info("hi")` | `client.log_client(LogClientOptions::default())?` | `client.NewLogClient(datadoglogs.LogClientOptions{})` | `client.log_client().logger("api").info("hi")` | `client.logClient().logger("api").info("hi")` |
+| send records now | `await client.exporter.export(records, { gzip: true })` | `client.exporter().export(&records, ExportOptions::new(true)).await?` | `client.Exporter().Export(ctx, records, datadoglogs.ExportOptions{Gzip: true})` | `client.exporter.export(records)` | `client.exporter().export(records, opts).join()` |
+| query client | `client.query()` | `client.query()?` | `client.Query()` | `client.query()` | `client.query()` |
+| one page | `query.searchLogs({ query, from: "now-1h", limit: 50 })` | `query.search_logs(&SearchLogsRequest::new(q).from("now-1h")).await?` | `query.SearchLogs(ctx, datadoglogs.SearchLogsRequest{Query: q})` | `query.search_logs(q, from_="now-1h")` | `query.searchLogs(SearchLogsRequest.builder().query(q).build())` |
+| all pages | `for await (const e of query.iterateLogs({ query }))` | `query.iterate_logs(req)` (Stream) | `for e, err := range query.IterateLogs(ctx, req)` | `for e in query.iterate_logs(q)` | `for (DatadogLogEvent e : query.iterateLogs(req))` |
+| counts | `query.aggregateLogs({ aggregation: "count" }, [{ facet: "status" }], { query })` | `query.aggregate_logs(&[Compute::new("count")], &[GroupBy::new("status")], &opts).await?` | `query.AggregateLogs(ctx, []datadoglogs.Compute{{Aggregation: "count"}}, groupBy, opts)` | `query.aggregate_logs(DatadogCompute("count"), [DatadogGroupBy("status")], query=q)` | `query.aggregateLogs(List.of(DatadogCompute.of("count")), List.of(DatadogGroupBy.of("status")), opts)` |
+| test helper | `query.waitForLog('"run-1"', { timeoutMs: 120_000 })` | `query.wait_for_log(q, WaitOptions::default().interval(DEFAULT_QUERY_POLL_INTERVAL)).await?` | `query.WaitForLog(ctx, q, datadoglogs.WaitForLogOptions{Timeout: 2 * time.Minute})` | `query.wait_for_log(q, timeout_s=120)` | `query.waitForLog(q)` |
+
+Rules an agent must know:
+
+- Logs go to `https://http-intake.logs.<site>/api/v2/logs`; the SDK splits batches at 1,000
+  entries / 5 MB, truncates records over 1 MB (`grow.truncated=true`) and sends trace ids as
+  `dd.trace_id`/`dd.span_id` (decimal lower 64 bits). User attributes named like reserved keys
+  (`service`, `status`, `ddtags`, …) are sent as `attr.<name>`.
+- Set resource `service.name` / `deployment.environment` / `service.version` / `host.name` (or the
+  config `service`/`env`/`version`/`hostname`) instead of attributes; they become `service`,
+  `ddtags` and `hostname`.
+- The search API is rate limited: poll at 5 s or slower (Rust and Java option types default to 1 s,
+  pass `DEFAULT_QUERY_POLL_INTERVAL` / `DatadogLogsQuery.DEFAULT_POLL_INTERVAL`). Indexing takes
+  seconds, so give `waitForLog` a generous timeout and search for a run-unique marker.
+- A retried intake request can store a batch twice (Datadog has no idempotency key).
+- Python: `DatadogLogsConfig.from_env(environ, /, **overrides)` (mapping is positional-only);
+  do not `dataclasses.replace(cfg, site=…)` (keeps the old URLs), build a new config instead.
+
 ## 4. Test code that uses the SDK
 
-Use the in-memory fakes from the testing module instead of a real Datadog Log Management in unit tests:
+Use the in-memory fakes from the testing module instead of a real Datadog account in unit tests:
 TypeScript `@grow-codes/datadog-logs/testing`, Rust feature `testing`, Go package `testkit`, Python
 `grow_datadog_logs.testing`, Java `codes.grow.packages.datadoglogs.testing`.
 
@@ -69,4 +108,5 @@ TypeScript `@grow-codes/datadog-logs/testing`, Rust feature `testing`, Go packag
 Read `AGENTS.md` first. Short version: the five languages keep the same API; files with the
 `Generated by sdk-kit` header are changed in sdk-kit, not here; `make lint coverage` must pass
 (≥ 90 % lines and branches); `make test-docker LANGS="<lang>"` runs the integration suite against
-`datadog/fakeintake (pinned tag) + optional live Datadog sandbox`.
+`datadog/fakeintake:v79` (intake round trips; search/aggregate/indexes only as wire stubs, see
+`docs/compatibility.md`).

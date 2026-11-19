@@ -1,0 +1,28 @@
+{
+  "fixture": "send.403_get_method",
+  "server": "Datadog SaaS (datadoghq.com / datadoghq.eu), probed 2026-11-18 with NO key or an all-zero invalid key",
+  "source": "datadog-live-unauthenticated",
+  "verified": true,
+  "request": {
+    "method": "GET",
+    "url": "https://http-intake.logs.datadoghq.com/api/v2/logs",
+    "headers": {
+      "dd-api-key": "<invalid placeholder>"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 403,
+    "headers": {
+      "content-type": "application/json",
+      "x-content-type-options": "nosniff"
+    },
+    "body": {
+      "errors": [
+        "Forbidden",
+        "API key is missing or invalid"
+      ]
+    }
+  },
+  "note": "GET on the intake with an invalid key is rejected by auth first -> the intake cannot serve as an unauthenticated health probe"
+}

@@ -1,0 +1,25 @@
+{
+  "fixture": "fakeintake.payloads.raw",
+  "server": "datadog/fakeintake:v79@sha256:a2742caa5d23",
+  "source": "fakeintake",
+  "verified": true,
+  "request": {
+    "method": "GET",
+    "path": "/fakeintake/payloads?endpoint=%2Fapi%2Fv2%2Flogs"
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "payloads": [
+        {
+          "timestamp": "2026-11-18T00:00:00.000000000Z",
+          "api_key": "<redacted>",
+          "data": "W3sibWVzc2FnZSI6InVzZXIgc2lnbmVkIGluIHNpbmdsZS0zMGIxY2NiMCIsInRpbWVzdGFtcCI6MTc5NTAzNDA4NzY5Mywic3RhdHVzIjoiaW5mbyIsInNlcnZpY2UiOiJjaGVja291dCIsImhvc3RuYW1lIjoiaG9zdC1hIiwiZGRzb3VyY2UiOiJncm93LXNkayIsImRkdGFncyI6ImVudjp0ZXN0LHZlcnNpb246MS4yLjMsdGVhbTpzZGsiLCJkZC50cmFjZV9pZCI6IjRiZjkyZjM1NzdiMzRkYTZhM2NlOTI5ZDBlMGU0NzM2IiwiZGQuc3Bhbl9pZCI6IjAwZjA2N2FhMGJhOTAyYjciLCJkZCI6eyJzZXJ2aWNlIjoiY2hlY2tvdXQiLCJlbnYiOiJ0ZXN0IiwidmVyc2lvbiI6IjEuMi4zIn0sIm90ZWwuc2V2ZXJpdHlfbnVtYmVyIjo5LCJ1c2VyIjp7ImlkIjo0Miwicm9sZXMiOlsiYWRtaW4iLCJkZXYiXX0sInVuaWNvZGUiOiJHcsO8w59lIOKAkyDml6XmnKzoqp4g4oCTIOKAqCBcInF1b3RlZFwiIn1d",
+          "encoding": "application/json",
+          "content_type": "application/json"
+        }
+      ]
+    }
+  },
+  "note": "data is base64 of the exact request body; encoding = Content-Encoding header, or the Content-Type when no Content-Encoding was sent"
+}

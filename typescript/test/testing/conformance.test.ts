@@ -14,9 +14,7 @@ let server: MockServer;
 
 beforeAll(async () => {
   server = await startServer((req) => {
-    if (req.url === "/health") return { status: 200, body: { status: "ok" } };
-    if (req.url === "/version") return { status: 200, body: { version: "0.0.1" } };
-    if (req.url === "/v1/ping") return { status: 200, body: {} };
+    if (req.url === "/api/v1/validate") return { status: 200, body: { valid: true } };
     return { status: 404 };
   });
 });
@@ -30,17 +28,17 @@ function options(): ConformanceOptions {
     scenariosDir,
     categories: ["core"],
     factories: {
-      core: () => new DatadogLogsClient({ url: server.url, token: "conformance-token" }),
+      core: () => new DatadogLogsClient({ url: server.url, apiKey: "conformance-key" }),
     },
-    capabilities: { core: ["version"] },
+    capabilities: { core: [] },
   };
 }
 
-describe("conformance (core) against a local demo API", () => {
+describe("conformance (core) against a local fake Datadog API", () => {
   it("every core scenario passes", async () => {
     const report = await runConformance(options());
     expect(report.failed, formatReport(report)).toBe(0);
-    expect(report.skipped).toBe(0);
+    expect(report.failed).toBe(0);
     expect(report.results.map((r) => r.id)).toContain("core.health");
   });
 

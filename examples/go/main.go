@@ -1,7 +1,12 @@
-// Command example shows the basics of the Datadog Log Management Go SDK: configuration
-// from the environment, health, an authenticated ping and error handling.
+// Command example shows the Datadog Log Management Go SDK: configuration from
+// the environment, API key validation, sending logs through the batching
+// LogClient and the slog handler, and searching them back.
 //
-//	GROW_DATADOG_LOGS_URL=http://127.0.0.1:80 GROW_DATADOG_LOGS_TOKEN=... go run .
+//	DD_API_KEY=... DD_APP_KEY=... DD_SITE=datadoghq.eu go run .
+//
+// Against the Docker fakeintake (no search there):
+//
+//	GROW_DATADOG_LOGS_URL=http://datadog-logs:80 DD_API_KEY=test go run .
 package main
 
 import (
@@ -27,7 +32,9 @@ func run() error {
 	if err != nil {
 		return err // CONFIG error naming the variable, never its value
 	}
-	cfg.Logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
+	if cfg.Service == "" {
+		cfg.Service = "grow-example"
+	}
 	cfg.Hooks = &datadoglogs.Hooks{
 		OnError: func(info datadoglogs.ErrorInfo) {
 			if info.WillRetry {
@@ -35,40 +42,63 @@ func run() error {
 			}
 		},
 	}
-	fmt.Println("config:", cfg) // credentials print as [REDACTED]
+	fmt.Println("config:", cfg) // keys print as [REDACTED]
 
 	client, err := datadoglogs.NewClient(cfg)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = client.Close() }()
+	defer func() { _ = client.Close() }() // flushes every LogClient
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	health, err := client.Health(ctx)
+	valid, err := client.ValidateAPIKey(ctx)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("health: healthy=%t status=%s\n", health.Healthy, health.Status)
+	if !valid {
+		return errors.New("Datadog rejected the API key (check DD_API_KEY and DD_SITE)")
+	}
+	fmt.Println("api key: valid")
 
-	latency, err := client.Ping(ctx)
-	switch {
-	case errors.Is(err, datadoglogs.ErrAuthentication):
-		return fmt.Errorf("check GROW_DATADOG_LOGS_TOKEN: %w", err)
-	case err != nil:
+	logs, err := client.NewLogClient(datadoglogs.LogClientOptions{})
+	if err != nil {
 		return err
 	}
-	fmt.Println("ping:", latency)
-
-	version, err := client.ServerVersion(ctx)
-	switch {
-	case errors.Is(err, datadoglogs.ErrUnsupported):
-		fmt.Println("server version: not exposed")
-	case err != nil:
+	marker := fmt.Sprintf("example-%d", time.Now().UnixNano())
+	logger := logs.Logger("example", map[string]datadoglogs.AttrValue{"run": marker})
+	logger.Info(ctx, "user signed in "+marker, "user.id", 42)
+	slog.New(datadoglogs.NewSlogHandler(logs, nil)).Warn("disk almost full "+marker, "percent", 91)
+	if err := logs.Flush(ctx); err != nil {
 		return err
-	default:
-		fmt.Println("server version:", version)
+	}
+	fmt.Printf("sent: %+v\n", logs.Stats())
+
+	query, err := client.Query()
+	if errors.Is(err, datadoglogs.ErrConfig) {
+		fmt.Println("no application key: skipping search")
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	rec, err := query.WaitForLog(ctx, `"`+marker+`"`, datadoglogs.WaitForLogOptions{Timeout: 90 * time.Second})
+	if err != nil {
+		return err
+	}
+	fmt.Printf("found: %s [%s] service=%v\n", rec.Body, rec.SeverityText, rec.Resource["service.name"])
+
+	res, err := query.AggregateLogs(ctx,
+		[]datadoglogs.Compute{{Aggregation: "count"}},
+		[]datadoglogs.GroupBy{{Facet: "status"}},
+		datadoglogs.AggregateLogsOptions{Query: `"` + marker + `"`, From: "now-15m"})
+	if err != nil {
+		return err
+	}
+	for _, b := range res.Buckets {
+		n, _ := b.Number("c0")
+		fmt.Printf("status=%v count=%v\n", b.By["status"], n)
 	}
 	return nil
 }

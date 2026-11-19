@@ -7,6 +7,8 @@ export interface RecordedRequest {
   url: string;
   headers: IncomingMessage["headers"];
   body: string;
+  /** Raw request body bytes (e.g. gzip). */
+  raw: Buffer;
 }
 
 /** A canned response. */
@@ -59,6 +61,7 @@ export async function startServer(handler: MockHandler | MockResponse[]): Promis
         url: req.url ?? "",
         headers: req.headers,
         body: Buffer.concat(chunks).toString("utf8"),
+        raw: Buffer.concat(chunks),
       };
       const index = requests.length;
       requests.push(recorded);

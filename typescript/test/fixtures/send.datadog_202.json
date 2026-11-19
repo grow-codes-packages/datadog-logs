@@ -1,0 +1,33 @@
+{
+  "fixture": "send.datadog_202",
+  "server": "Datadog SaaS (api.<site>) - NOT recorded, no sandbox org yet",
+  "source": "datadog-openapi",
+  "verified": false,
+  "request": {
+    "method": "POST",
+    "path": "/api/v2/logs",
+    "headers": {
+      "dd-api-key": "<redacted>",
+      "content-type": "application/json",
+      "content-encoding": "gzip"
+    },
+    "body": [
+      {
+        "message": "hello",
+        "ddsource": "grow-sdk",
+        "ddtags": "env:test",
+        "hostname": "host-a",
+        "service": "checkout",
+        "status": "info"
+      }
+    ]
+  },
+  "response": {
+    "status": 202,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {}
+  },
+  "note": "official: always 202 with {} on acceptance (fakeintake is configured by bootstrap to answer the same)"
+}

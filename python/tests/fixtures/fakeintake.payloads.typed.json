@@ -1,0 +1,41 @@
+{
+  "fixture": "fakeintake.payloads.typed",
+  "server": "datadog/fakeintake:v79@sha256:a2742caa5d23",
+  "source": "fakeintake",
+  "verified": true,
+  "request": {
+    "method": "GET",
+    "path": "/fakeintake/payloads?endpoint=%2Fapi%2Fv2%2Flogs&format=json",
+    "headers": {},
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json",
+      "fakeintake-id": "00000000-0000-0000-0000-000000000000",
+      "content-length": "581"
+    },
+    "body": {
+      "payloads": [
+        {
+          "timestamp": "2026-11-18T00:00:00.000000000Z",
+          "api_key": "<redacted>",
+          "data": [
+            {
+              "message": "user signed in single-30b1ccb0",
+              "status": "info",
+              "timestamp": 1795034087693,
+              "hostname": "host-a",
+              "service": "checkout",
+              "ddsource": "grow-sdk",
+              "ddtags": "env:test,version:1.2.3,team:sdk"
+            }
+          ],
+          "encoding": "application/json"
+        }
+      ]
+    }
+  },
+  "note": "typed view keeps only message,status,timestamp,hostname,service,ddsource,ddtags (string); timestamp must be an integer (ms) or the whole typed view fails; trace ids and custom attributes are dropped - use the raw view for assertions"
+}

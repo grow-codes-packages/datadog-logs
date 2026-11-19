@@ -1,0 +1,24 @@
+{
+  "fixture": "validateApiKey.datadog_ok",
+  "server": "Datadog SaaS (api.<site>) - NOT recorded, no sandbox org yet",
+  "source": "datadog-openapi",
+  "verified": false,
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/validate",
+    "headers": {
+      "dd-api-key": "<redacted>"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "valid": true
+    }
+  },
+  "note": "official: only DD-API-KEY, no application key"
+}

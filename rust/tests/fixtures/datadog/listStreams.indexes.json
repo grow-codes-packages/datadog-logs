@@ -1,0 +1,37 @@
+{
+  "fixture": "listStreams.indexes",
+  "server": "Datadog SaaS (api.<site>) - NOT recorded, no sandbox org yet",
+  "source": "datadog-openapi",
+  "verified": false,
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/logs/config/indexes",
+    "headers": {
+      "dd-api-key": "<redacted>",
+      "dd-application-key": "<redacted>",
+      "content-type": "application/json"
+    },
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "indexes": [
+        {
+          "name": "main",
+          "filter": {
+            "query": "*"
+          },
+          "num_retention_days": 15,
+          "daily_limit": 300000000,
+          "is_rate_limited": false,
+          "exclusion_filters": []
+        }
+      ]
+    }
+  },
+  "note": "needs logs_read_config (extra scope beyond logs_read_data); proposed mapping for listStreams() -> index names"
+}

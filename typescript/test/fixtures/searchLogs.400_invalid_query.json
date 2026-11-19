@@ -1,0 +1,32 @@
+{
+  "fixture": "searchLogs.400_invalid_query",
+  "server": "Datadog SaaS (api.<site>) - NOT recorded, no sandbox org yet",
+  "source": "datadog-openapi",
+  "verified": false,
+  "request": {
+    "method": "POST",
+    "path": "/api/v2/logs/events/search",
+    "headers": {
+      "dd-api-key": "<redacted>",
+      "dd-application-key": "<redacted>",
+      "content-type": "application/json"
+    },
+    "body": {
+      "filter": {
+        "query": "service:(checkout",
+        "from": "now-15m",
+        "to": "now"
+      }
+    }
+  },
+  "response": {
+    "status": 400,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "errors": ["Invalid query: unbalanced parenthesis"]
+    }
+  },
+  "note": "APIErrorResponse {errors:[string]} (form confirmed by live 401/403 probes; exact 400 text unverified). Parsers should still tolerate JSON:API objects [{status,title,detail}] (HTTPLogErrors schema) -> ValidationError"
+}

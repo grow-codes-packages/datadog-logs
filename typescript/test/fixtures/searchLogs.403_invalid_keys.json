@@ -1,0 +1,27 @@
+{
+  "fixture": "searchLogs.403_invalid_keys",
+  "server": "Datadog SaaS (datadoghq.com / datadoghq.eu), probed 2026-11-18 with NO key or an all-zero invalid key",
+  "source": "datadog-live-unauthenticated",
+  "verified": true,
+  "request": {
+    "method": "POST",
+    "url": "https://api.datadoghq.com/api/v2/logs/events/search",
+    "headers": {
+      "dd-api-key": "<invalid placeholder>",
+      "dd-application-key": "<invalid placeholder>",
+      "content-type": "application/json"
+    },
+    "body": {}
+  },
+  "response": {
+    "status": 403,
+    "headers": {
+      "content-type": "application/json",
+      "x-content-type-options": "nosniff"
+    },
+    "body": {
+      "errors": ["Forbidden"]
+    }
+  },
+  "note": "invalid keys -> 403 {errors:[Forbidden]}; a valid key without logs_read_data is expected to give the same 403 (unverified)"
+}

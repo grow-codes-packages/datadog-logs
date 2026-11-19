@@ -12,5 +12,15 @@ publish = false
 grow-datadog-logs = { path = "..", features = ["testing", "blocking"] }
 tokio = { version = "1.43", features = ["rt-multi-thread", "macros", "time"] }
 serde_json = "1.0.120"
+# fakeintake harness access (payload read-back, response overrides); all already in the
+# SDK's dependency tree, so the packaged lockfile covers them.
+async-trait = "0.1.80"
+flate2 = "1.0.30"
+futures = { version = "0.3.30", default-features = false, features = ["std", "async-await"] }
+reqwest = { version = "0.12.9", default-features = false, features = ["rustls-tls-native-roots", "json"] }
+# framework adapters exercised against the intake
+log = { version = "0.4.22", features = ["std", "kv"] }
+tracing = { version = "0.1.40", default-features = false, features = ["std", "attributes"] }
+tracing-subscriber = { version = "0.3.18", default-features = false, features = ["std", "registry"] }
 
 [workspace]

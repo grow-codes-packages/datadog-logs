@@ -1,0 +1,67 @@
+{
+  "fixture": "aggregateLogs.count_by_service",
+  "server": "Datadog SaaS (api.<site>) - NOT recorded, no sandbox org yet",
+  "source": "datadog-openapi",
+  "verified": false,
+  "request": {
+    "method": "POST",
+    "path": "/api/v2/logs/analytics/aggregate",
+    "headers": {
+      "dd-api-key": "<redacted>",
+      "dd-application-key": "<redacted>",
+      "content-type": "application/json"
+    },
+    "body": {
+      "compute": [
+        {
+          "aggregation": "count",
+          "type": "total"
+        }
+      ],
+      "filter": {
+        "query": "service:checkout \"run-7f3a\"",
+        "from": "2026-11-18T12:00:00Z",
+        "to": "2026-11-18T12:15:00Z",
+        "indexes": [
+          "main"
+        ]
+      },
+      "group_by": [
+        {
+          "facet": "service",
+          "limit": 10,
+          "sort": {
+            "aggregation": "count",
+            "order": "desc"
+          }
+        }
+      ]
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {
+      "data": {
+        "buckets": [
+          {
+            "by": {
+              "service": "checkout"
+            },
+            "computes": {
+              "c0": 3
+            }
+          }
+        ]
+      },
+      "meta": {
+        "elapsed": 52,
+        "request_id": "cFJiNlp3...-redacted",
+        "status": "done"
+      }
+    }
+  },
+  "note": "computes are keyed c0, c1, ... in compute[] order; values are number | string | timeseries array"
+}

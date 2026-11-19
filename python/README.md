@@ -1,19 +1,26 @@
 # grow-datadog-logs (Python)
 
 Python SDK for [Datadog Log Management](https://grow-codes-packages.github.io/datadog-logs/) by Grow Codes.
-Unofficial and community maintained; "Datadog Log Management" is a trademark of Datadog, Inc..
+Unofficial and community maintained; "Datadog Log Management" is a trademark of Datadog, Inc. Not affiliated with or endorsed by Datadog.
 
 ```bash
 pip install grow-datadog-logs
 ```
 
 ```python
-from grow_datadog_logs import DatadogLogsClient, DatadogLogsConfig
+import grow_datadog_logs as sdk
 
-# Reads GROW_DATADOG_LOGS_URL, GROW_DATADOG_LOGS_TOKEN, ... from the environment.
-with DatadogLogsClient.from_env() as client:
-    print(client.health())
-    print(client.server_version())
+# Reads DD_API_KEY, DD_APP_KEY, DD_SITE, DD_SERVICE, DD_ENV, DD_TAGS, GROW_DATADOG_LOGS_* ...
+with sdk.DatadogLogsClient.from_env() as client:
+    assert client.validate_api_key()
+    logs = client.log_client(resource={"service.name": "checkout"})  # batching, gzip
+    logs.logger().info("user signed in", {"user": {"id": 42}})
+    logs.flush(10)
+
+    query = client.query()  # needs the application key
+    page = query.search_logs('service:checkout "signed in"', from_="now-1h", limit=50)
+    counts = query.aggregate_logs(sdk.DatadogCompute("count"), [sdk.DatadogGroupBy("status")])
+# close() flushed every log client
 ```
 
 The async client has the same methods:

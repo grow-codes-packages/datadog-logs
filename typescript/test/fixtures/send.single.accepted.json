@@ -1,0 +1,47 @@
+{
+  "fixture": "send.single.accepted",
+  "server": "datadog/fakeintake:v79@sha256:a2742caa5d23",
+  "source": "fakeintake",
+  "verified": true,
+  "request": {
+    "method": "POST",
+    "path": "/api/v2/logs",
+    "headers": {
+      "content-type": "application/json",
+      "dd-api-key": "<redacted>"
+    },
+    "body": [
+      {
+        "message": "user signed in single-30b1ccb0",
+        "timestamp": 1795034087693,
+        "status": "info",
+        "service": "checkout",
+        "hostname": "host-a",
+        "ddsource": "grow-sdk",
+        "ddtags": "env:test,version:1.2.3,team:sdk",
+        "dd.trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+        "dd.span_id": "00f067aa0ba902b7",
+        "dd": {
+          "service": "checkout",
+          "env": "test",
+          "version": "1.2.3"
+        },
+        "otel.severity_number": 9,
+        "user": {
+          "id": 42,
+          "roles": ["admin", "dev"]
+        },
+        "unicode": "Grüße – 日本語 –   \"quoted\""
+      }
+    ]
+  },
+  "response": {
+    "status": 202,
+    "headers": {
+      "content-type": "application/json",
+      "fakeintake-id": "00000000-0000-0000-0000-000000000000",
+      "content-length": "2"
+    },
+    "body": {}
+  }
+}

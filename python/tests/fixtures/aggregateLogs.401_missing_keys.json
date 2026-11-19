@@ -1,0 +1,27 @@
+{
+  "fixture": "aggregateLogs.401_missing_keys",
+  "server": "Datadog SaaS (datadoghq.com / datadoghq.eu), probed 2026-11-18 with NO key or an all-zero invalid key",
+  "source": "datadog-live-unauthenticated",
+  "verified": true,
+  "request": {
+    "method": "POST",
+    "url": "https://api.datadoghq.com/api/v2/logs/analytics/aggregate",
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": {}
+  },
+  "response": {
+    "status": 401,
+    "headers": {
+      "content-type": "application/json",
+      "x-content-type-options": "nosniff"
+    },
+    "body": {
+      "errors": [
+        "Unauthorized"
+      ]
+    }
+  },
+  "note": "no keys -> 401"
+}
