@@ -1,6 +1,6 @@
 {
   "name": "@grow-codes/datadog-logs",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Grow Codes SDK for Datadog Log Management (TypeScript)",
   "keywords": [
     "datadog-logs",
